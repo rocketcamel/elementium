@@ -1,0 +1,14 @@
+name = "rocketcamel/elementium_scheduler"
+version = "0.1.0"
+includes = ["src/**", "pesde.toml"]
+
+[target]
+environment = "roblox"
+lib = "src/init.luau"
+build_files = ["src"]
+
+[indices]
+default = "https://github.com/pesde-pkg/index"
+
+[dependencies]
+jabby = { repo = "alicesaidhi/jabby", rev = "436e482" }

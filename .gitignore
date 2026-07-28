@@ -1,0 +1,9 @@
+.pesde
+*_packages
+*out
+
+*.rbxlx.lock
+*.rbxl.lock
+sourcemap.json
+
+elementium.rbxl

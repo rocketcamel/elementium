@@ -1,0 +1,8 @@
+[settings]
+github.github_attestations = false
+
+[tools]
+"github:rojo-rbx/rojo" = { version = "7.7.0", github_attestations = false }
+"github:pesde-pkg/pesde" = "0.7.3"
+"github:lune-org/lune" = "0.10.2"
+"github:johnnymorganz/stylua" = "2.5.2"

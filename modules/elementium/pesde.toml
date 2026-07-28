@@ -1,0 +1,15 @@
+name = "rocketcamel/elementium"
+version = "0.1.0"
+includes = ["src/**", "pesde.toml"]
+
+[target]
+environment = "roblox"
+build_files = ["src"]
+
+[indices]
+default = "https://github.com/pesde-pkg/index"
+
+[dependencies]
+jecs = { repo = "ukendio/jecs", rev = "v0.11.0" }
+jabby = { repo = "alicesaidhi/jabby", rev = "436e482" }
+scheduler = { workspace = "rocketcamel/elementium_scheduler" }
