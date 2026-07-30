@@ -6,8 +6,37 @@ local scheduler = require "../roblox_packages/scheduler"
 
 local world = jecs.world()
 
+export type CharacterModel = Model & {
+	Head: BasePart,
+	Torso: BasePart,
+	HumanoidRootPart: BasePart & {
+		RootAttachment: Attachment,
+	},
+	Humanoid: Humanoid,
+	["Left Arm"]: BasePart,
+	["Right Arm"]: BasePart,
+	["Left Leg"]: BasePart,
+	["Right Leg"]: BasePart,
+}
+
+export type Character = {
+	health: number,
+	max_health: number,
+	walk_speed: number,
+	jump_power: number,
+	instance: CharacterModel,
+}
+
+export type AbilityKind = "dash"
+
+export type Ability = {
+	kind: AbilityKind,
+}
+
 local components = {
 	Player = world:component<<Player>>(),
+	Character = world:component<<Character>>(),
+	Ability = world:component<<Ability>>(),
 }
 
 for name, component in components :: any do

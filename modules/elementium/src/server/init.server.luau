@@ -1,11 +1,7 @@
-local Players = game:GetService "Players"
 local ecs = require "../ReplicatedStorage/shared/ecs"
+local services = require "./server/services"
+local systems = require "./server/systems"
 
 ecs.create()
-
-Players.PlayerAdded:Connect(function(player)
-	local entity = ecs.world:entity()
-	ecs.world:set(entity, ecs.components.Player, player)
-
-	player:SetAttribute("entity_id", entity)
-end)
+systems.register()
+services.register()

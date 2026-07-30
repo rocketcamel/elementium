@@ -1,9 +1,11 @@
 local ecs = require "../../ReplicatedStorage/shared/ecs"
 local scheduler = require "../../ReplicatedStorage/roblox_packages/scheduler"
 
-local nodes = {}
+type VisitState = {
+	nodes: { scheduler.SystemDeclaration },
+}
 
-local function visit_system(node: Instance)
+local function visit_system(state: VisitState, node: Instance)
 	if not node:IsA "ModuleScript" then return end
 
 	local declaration = require(node) :: scheduler.SystemDeclaration
@@ -12,18 +14,26 @@ local function visit_system(node: Instance)
 		error(`missing system declaration for: {node:GetFullName()}`)
 	end
 
-	table.insert(nodes, declaration)
+	table.insert(state.nodes, declaration)
 end
 
-local function visit(root: Instance)
+local function visit(state: VisitState, root: Instance)
 	for _, node in root:GetChildren() do
 		if node:IsA "Folder" then
-			visit(node)
+			visit(state, node)
 		else
-			visit_system(node)
+			visit_system(state, node)
 		end
 	end
 end
 
-visit(script)
-ecs.scheduler.add_systems(nodes)
+return {
+	register = function()
+		local state: VisitState = {
+			nodes = {},
+		}
+
+		visit(state, script)
+		ecs.scheduler.add_systems(state.nodes)
+	end,
+}
