@@ -1,5 +1,6 @@
-local ecs = require "../shared/ecs"
+local ecs = require "../../shared/ecs"
 
+local world = ecs.world
 local components = ecs.components
 
 local function dash(character: ecs.Character)
@@ -11,3 +12,10 @@ local function dash(character: ecs.Character)
 
 	force.LineVelocity = 50
 end
+
+local function movement() end
+
+return {
+	phase = "post_simulation",
+	system = movement,
+}

@@ -27,7 +27,7 @@ world:set(
 	function(entity, id, data) update_character(data :: any) end
 )
 
-return function()
+local function client()
 	local function create_character(entity_id: jecs.Entity, player: Player)
 		player.CharacterAdded:Connect(
 			function(instance)
@@ -43,10 +43,15 @@ return function()
 	end
 
 	Players.PlayerAdded:Connect(function(player)
-		local entity = ecs.world:entity()
-		ecs.world:set(entity, ecs.components.Player, player)
+		local entity = world:entity()
+		world:set(entity, components.Player, player)
 
 		player:SetAttribute("entity_id", entity)
 		create_character(entity, player)
 	end)
 end
+
+return {
+	phase = "startup",
+	system = client,
+}

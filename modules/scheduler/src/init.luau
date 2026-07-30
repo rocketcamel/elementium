@@ -5,83 +5,83 @@ type System = () -> ()
 export type Info = {
 	id: number,
 	system: System,
-	priority: number,
 	delta: number,
 }
 
+export type Phase = "startup" | "post_simulation"
+
 export type SystemDeclaration = {
-	priority: number,
 	system: System,
+	phase: Phase,
 }
 
-local function scheduler()
-	local system_info: { Info } = {}
-	local jabby_scheduler = jabby.scheduler.create()
-	local n = 0
+local PHASE_ORDER: { Phase } = { "post_simulation" }
 
-	local function add_system(node: SystemDeclaration)
-		n += 1
-		table.insert(system_info, {
-			id = n,
+local function scheduler()
+	local jabby_scheduler = jabby.scheduler.create()
+	local started = false
+
+	local systems: { [Phase]: { Info } } = {
+		["startup"] = {},
+		["post_simulation"] = {},
+	}
+
+	local function scheduler_add_system(node: SystemDeclaration)
+		local name = debug.info(node.system, "n")
+		local source, l = debug.info(node.system, "sl")
+
+		local id = jabby_scheduler:register_system {
+			name = name or `{source}:{l}`,
+			phase = node.phase,
+			paused = false,
+		}
+
+		table.insert(systems[node.phase], {
+			id = id,
 			system = node.system,
 			priority = 0,
 			delta = 0,
 		})
-
-		local name, l = debug.info(2, "sl")
-		jabby_scheduler:register_system {
-			name = `{name}:{l}`,
-			phase = "PostSimulation",
-			paused = false,
-		}
-
-		table.sort(
-			system_info,
-			function(a, b) return (a :: any).priority < b.priority end
-		)
 	end
 
 	local function add_systems(nodes: { SystemDeclaration })
 		if #nodes == 0 then return end
 
 		for _, node in nodes do
-			n += 1
-			table.insert(system_info, {
-				id = n,
-				system = node.system,
-				priority = node.priority,
-				delta = 0,
-			})
-
-			local name, l = debug.info(2, "sl")
-			jabby_scheduler:register_system {
-				name = `{name}:{l}`,
-				phase = "PostSimulation",
-				paused = false,
-			}
+			scheduler_add_system(node)
 		end
-
-		table.sort(
-			system_info,
-			function(a, b) return (a :: any).priority < b.priority end
-		)
 	end
 
-	local function run_system(info: Info)
-		local now = os.clock()
+	local function run_phase(phase: Phase)
+		for _, info in systems[phase] do
+			jabby_scheduler:run(info.id, function()
+				local now = os.clock()
 
-		info.system()
-		info.delta = (os.clock() - now)
+				info.system()
+				info.delta = (os.clock() - now)
+			end)
+		end
 	end
 
 	local function run()
-		for _, system in system_info do
-			jabby_scheduler:run(system.id, function() run_system(system) end)
+		if not started then
+			run_phase "startup"
+			started = true
+
+			for _, info in systems["startup"] do
+				jabby_scheduler:set_system_data(info.id, {
+					paused = true,
+				})
+			end
+		end
+
+		for _, phase in PHASE_ORDER do
+			run_phase(phase)
 		end
 	end
 
 	return {
-		add_system = add_system,
+		add_system = scheduler_add_system,
 		add_systems = add_systems,
 		run = run,
 		jabby_scheduler = jabby_scheduler,
