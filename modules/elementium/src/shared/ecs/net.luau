@@ -38,7 +38,7 @@ export type ComponentPacket = {
 }
 
 export type ReplicateEntityPacket = {
-	entity_id: number,
+	entity_id: jecs.Entity,
 	components: { ComponentPacket },
 }
 
@@ -93,8 +93,8 @@ end
 
 function net.server.replicate_entity(
 	player: Player,
-	entity_id: number,
-	components: { jecs.Component }?
+	entity_id: jecs.Entity,
+	components: { [string]: jecs.Component }?
 )
 	assert_run_context "server"
 	assert(net.server.initialized, "server not initialized")
@@ -102,22 +102,25 @@ function net.server.replicate_entity(
 	local component_packet = {}
 
 	if components then
-		for _, component in components do
+		for name, component in components do
 			table.insert(component_packet, {
-				name = world:get(component, jecs.Name),
-				data = component.__T,
+				name = name,
+				data = component,
 			})
 		end
 	end
 
 	local packet: ReplicateEntityPacket = {
 		entity_id = entity_id,
-		components = {},
+		components = component_packet,
 	}
 
-	print(`constructed packet: {packet} for {player.Name}`)
+	print(`constructed packet for {player.Name}`, packet)
 
 	remotes.replicate_entity:FireClient(player, packet)
+end
+
+function net.client.on_replicate_entity()
 end
 
 return net

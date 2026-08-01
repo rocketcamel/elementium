@@ -2,6 +2,7 @@ local Players = game:GetService "Players"
 
 local ecs = require "../../../ReplicatedStorage/shared/ecs"
 local jecs = require "../../../ReplicatedStorage/roblox_packages/jecs"
+local net = require "../../../ReplicatedStorage/shared/ecs/net"
 
 local world = ecs.world
 local components = ecs.components
@@ -26,6 +27,22 @@ world:set(
 	jecs.OnAdd,
 	function(entity, id, data) update_character(data :: any) end
 )
+
+local function get_client(entity: jecs.Entity): Player
+	local player = world:get(entity, components.Player)
+	assert(player, `entity {entity} does not have a player component`)
+	return player
+end
+
+world:added(components.Character, function(entity, id, data)
+	local player = get_client(entity)
+	net.server.replicate_entity(player, entity, { Character = data })
+end)
+
+world:changed(components.Character, function(entity, id, data)
+	local player = get_client(entity)
+	net.server.replicate_entity(player, entity, { Character = data })
+end)
 
 local function client()
 	local function create_character(entity_id: jecs.Entity, player: Player)
