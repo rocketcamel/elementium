@@ -37,7 +37,11 @@ local components = {
 	Player = world:component<<Player>>(),
 	Character = world:component<<Character>>(),
 	Ability = world:component<<Ability>>(),
+	Networked = world:component(),
 }
+
+world:add(components.Character, components.Networked)
+world:add(components.Player, components.Networked)
 
 for name, component in components :: any do
 	world:set(component, jecs.Name, name)

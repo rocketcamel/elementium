@@ -34,16 +34,6 @@ local function get_client(entity: jecs.Entity): Player
 	return player
 end
 
-world:added(components.Character, function(entity, id, data)
-	local player = get_client(entity)
-	net.server.replicate_entity(player, entity, { Character = data })
-end)
-
-world:changed(components.Character, function(entity, id, data)
-	local player = get_client(entity)
-	net.server.replicate_entity(player, entity, { Character = data })
-end)
-
 local function client()
 	local function create_character(entity_id: jecs.Entity, player: Player)
 		player.CharacterAdded:Connect(

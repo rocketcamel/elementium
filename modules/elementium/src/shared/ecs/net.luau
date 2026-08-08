@@ -18,7 +18,7 @@ local function assert_run_context(context: "server" | "client")
 end
 
 export type RemoteIndex = {
-	replicate_entity: RemoteEvent,
+	replicate_snapshot: RemoteEvent,
 }
 
 local remotes: RemoteIndex
@@ -67,7 +67,7 @@ function net.server.create()
 	end
 
 	local remote_index: RemoteIndex = {
-		replicate_entity = remote "replicate_entity",
+		replicate_snapshot = remote "replicate_snapshot",
 	}
 
 	remotes = remote_index
@@ -84,43 +84,27 @@ function net.client.create()
 	end
 
 	local remote_index: RemoteIndex = {
-		replicate_entity = remote "replicate_entity",
+		replicate_snapshot = remote "replicate_snapshot",
 	}
 
 	remotes = remote_index
 	net.client.initialized = true
 end
 
-function net.server.replicate_entity(
-	player: Player,
-	entity_id: jecs.Entity,
-	components: { [string]: jecs.Component }?
-)
+function net.server.replicate_snapshot(player: Player, snapshot: unknown)
 	assert_run_context "server"
 	assert(net.server.initialized, "server not initialized")
 
-	local component_packet = {}
-
-	if components then
-		for name, component in components do
-			table.insert(component_packet, {
-				name = name,
-				data = component,
-			})
-		end
-	end
-
-	local packet: ReplicateEntityPacket = {
-		entity_id = entity_id,
-		components = component_packet,
-	}
-
-	print(`constructed packet for {player.Name}`, packet)
-
-	remotes.replicate_entity:FireClient(player, packet)
+	remotes.replicate_snapshot:FireClient(player, snapshot)
 end
 
-function net.client.on_replicate_entity()
+function net.client.on_replicate_snapshot(fn: (
+	entity: ReplicateEntityPacket
+) -> ())
+	assert_run_context "client"
+	assert(net.client.initialized)
+
+	remotes.replicate_snapshot.OnClientEvent:Connect(fn)
 end
 
 return net
