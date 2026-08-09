@@ -1,10 +1,6 @@
 local ReplicatedStorage = game:GetService "ReplicatedStorage"
 local RunService = game:GetService "RunService"
-local ecs = require "../ecs"
 local jecs = require "../../roblox_packages/jecs"
-
-local world = ecs.world
-local components = ecs.components
 
 local run_context: "server" | "client" = if RunService:IsServer()
 	then "server"
@@ -32,14 +28,11 @@ local net = {
 	},
 }
 
-export type ComponentPacket = {
-	name: string,
-	data: unknown,
-}
-
-export type ReplicateEntityPacket = {
-	entity_id: jecs.Entity,
-	components: { ComponentPacket },
+export type Snapshot = {
+	[string]: {
+		set_ids: { jecs.Entity },
+		set_values: { unknown },
+	},
 }
 
 function net.server.create()
@@ -98,9 +91,7 @@ function net.server.replicate_snapshot(player: Player, snapshot: unknown)
 	remotes.replicate_snapshot:FireClient(player, snapshot)
 end
 
-function net.client.on_replicate_snapshot(fn: (
-	entity: ReplicateEntityPacket
-) -> ())
+function net.client.on_replicate_snapshot(fn: (snapshot: Snapshot) -> ())
 	assert_run_context "client"
 	assert(net.client.initialized)
 

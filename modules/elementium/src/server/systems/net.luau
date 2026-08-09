@@ -82,7 +82,7 @@ local function net_send()
 			print(storages)
 			for component, storage in storages do
 				local set_values = {}
-				local set_n = 0
+				local set_index = 0
 
 				local query = world:query(component)
 				local is_tag = jecs.is_tag(world, component)
@@ -91,19 +91,26 @@ local function net_send()
 					local entities = archetype.entities
 					local entities_len = #entities
 
-					table.move(entities, 1, entities_len, set_n + 1, set_ids)
+					table.move(
+						entities,
+						1,
+						entities_len,
+						set_index + 1,
+						set_ids
+					)
+
 					if not is_tag then
 						local column = archetype.columns_map[component]
 						table.move(
 							column,
 							1,
 							entities_len,
-							set_n + 1,
+							set_index + 1,
 							set_values
 						)
 					end
 
-					set_n += entities_len
+					set_index += entities_len
 				end
 
 				local map = {
@@ -123,32 +130,32 @@ local function net_send()
 
 		for component, storage in storages do
 			local set_values = {}
-			local set_n = 0
-			local removed_n = 0
+			local set_index = 0
+			local remove_index = 0
 
 			local is_tag = jecs.is_tag(world, component)
 
 			for entity, value in storage do
 				if value ~= "jecs.Remove" then
-					set_n += 1
-					set_ids[set_n] = entity
-					set_values[set_n] = if is_tag then 0 else value
+					set_index += 1
+					set_ids[set_index] = entity
+					set_values[set_index] = if is_tag then 0 else value
 				elseif world:contains(entity) then
-					removed_n += 1
-					removed_ids[removed_n] = entity
+					remove_index += 1
+					removed_ids[remove_index] = entity
 				end
 			end
 
 			table.clear(storage)
 
-			local dirty = if set_n > 0 then true else false
+			local dirty = if set_index > 0 then true else false
 
 			if dirty then
-				local set = table.move(set_ids, 1, set_n, 1, {})
+				local set = table.move(set_ids, 1, set_index, 1, {})
 
 				local map = {
-					set_ids = if set_n > 0 then set else nil,
-					set_values = if set_n > 0 then set_values else nil,
+					set_ids = if set_index > 0 then set else nil,
+					set_values = if set_index > 0 then set_values else nil,
 				}
 
 				snapshot[tostring(component)] = map
