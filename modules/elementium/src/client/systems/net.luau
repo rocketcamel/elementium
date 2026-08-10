@@ -34,16 +34,28 @@ local function networking()
 			for component_id, storage in snapshot do
 				local component = components[component_id]
 
-				for index, id in storage.set_ids do
-					local client_id = server_entity_map[id]
+				if storage.set_ids then
+					for index, id in storage.set_ids do
+						local client_id = server_entity_map[id]
 
-					if not client_id then
-						local entity = world:entity()
-						server_entity_map[id] = entity
-						client_id = entity
+						if not client_id then
+							local entity = world:entity()
+							server_entity_map[id] = entity
+							client_id = entity
+						end
+
+						world:set(
+							client_id,
+							component,
+							storage.set_values[index]
+						)
 					end
+				end
 
-					world:set(client_id, component, storage.set_values[index])
+				if storage.remove then
+					for _, id in storage.remove do
+						world:remove(id, component)
+					end
 				end
 			end
 		end
@@ -51,6 +63,7 @@ local function networking()
 end
 
 return {
+	name = "networking",
 	phase = "post_simulation",
 	system = networking(),
 }

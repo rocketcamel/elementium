@@ -32,6 +32,7 @@ export type Snapshot = {
 	[string]: {
 		set_ids: { jecs.Entity },
 		set_values: { unknown },
+		remove: { jecs.Entity },
 	},
 }
 

@@ -2,7 +2,7 @@ local Players = game:GetService "Players"
 
 local ecs = require "../../../ReplicatedStorage/shared/ecs"
 local jecs = require "../../../ReplicatedStorage/roblox_packages/jecs"
-local net = require "../../../ReplicatedStorage/shared/ecs/net"
+local storage = require "../../../ReplicatedStorage/shared/storage"
 
 local world = ecs.world
 local components = ecs.components
@@ -55,7 +55,11 @@ local function client()
 
 		player:SetAttribute("entity_id", entity)
 		create_character(entity, player)
+
+		storage.initialize(player)
 	end)
+
+	Players.PlayerRemoving:Connect(function(player) storage.cleanup(player) end)
 end
 
 return {

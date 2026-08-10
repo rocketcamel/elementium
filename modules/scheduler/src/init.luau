@@ -11,6 +11,7 @@ export type Info = {
 export type Phase = "startup" | "pre_simulation" | "post_simulation"
 
 export type SystemDeclaration = {
+	name: string?,
 	system: System,
 	phase: Phase,
 }
@@ -28,7 +29,7 @@ local function scheduler()
 	}
 
 	local function scheduler_add_system(node: SystemDeclaration)
-		local name = debug.info(node.system, "n")
+		local name = node.name or debug.info(node.system, "n")
 		local source, l = debug.info(node.system, "sl")
 
 		local id = jabby_scheduler:register_system {

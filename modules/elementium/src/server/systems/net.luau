@@ -116,6 +116,7 @@ local function net_send()
 				local map = {
 					set_ids = set_ids,
 					set_values = set_values,
+					remove = nil,
 				}
 
 				initial_snapshot[tostring(component)] = map
@@ -124,12 +125,12 @@ local function net_send()
 			net.server.replicate_snapshot(player, initial_snapshot)
 		end
 
-		local set_ids = {}
-		local removed_ids = {}
 		local snapshot = {}
 
 		for component, storage in storages do
+			local set_ids = {}
 			local set_values = {}
+			local removed_ids = {}
 			local set_index = 0
 			local remove_index = 0
 
@@ -148,14 +149,15 @@ local function net_send()
 
 			table.clear(storage)
 
-			local dirty = if set_index > 0 then true else false
+			local dirty = if set_index > 0 or remove_index > 0
+				then true
+				else false
 
 			if dirty then
-				local set = table.move(set_ids, 1, set_index, 1, {})
-
 				local map = {
-					set_ids = if set_index > 0 then set else nil,
+					set_ids = if set_index > 0 then set_ids else nil,
 					set_values = if set_index > 0 then set_values else nil,
+					remove = if remove_index > 0 then removed_ids else nil,
 				}
 
 				snapshot[tostring(component)] = map
@@ -171,6 +173,7 @@ local function net_send()
 end
 
 return {
+	name = "networking",
 	system = net_send(),
 	phase = "pre_simulation",
 }
