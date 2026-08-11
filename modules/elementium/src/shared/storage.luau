@@ -32,7 +32,7 @@ local function default_storage(): StoredData<Store>
 	return {
 		rev = CURRENT_REVISION,
 		lock = nil,
-		data = { shards = 0 },
+		data = { shards = 200 },
 	}
 end
 
@@ -56,7 +56,7 @@ local function lock_store<T>(session: Session<T>)
 
 				store.lock = {
 					owner = game.JobId,
-					expires = os.time() + 5 * 60 * 60,
+					expires = os.time() + 5 * 60,
 				}
 
 				return store
@@ -92,13 +92,10 @@ local function unlock_store<T>(session: Session<T>)
 end
 
 local function commit_store<T>(session: Session<T>)
-	local store = session.store:UpdateAsync(
-		session.key,
-		function(store: StoredData<Store>)
-			store.data = session.data
-			return store
-		end
-	)
+	session.store:UpdateAsync(session.key, function(store: StoredData<Store>)
+		store.data = session.data
+		return store
+	end)
 end
 
 local function initialize(player: Player): Session<Store>
