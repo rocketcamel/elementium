@@ -27,16 +27,20 @@ export type Character = {
 	instance: CharacterModel,
 }
 
-export type AbilityKind = "dash"
-
-export type Ability = {
-	kind: AbilityKind,
+export type Dash = {
+	from: string,
+	velocity: number,
+	active: boolean,
+	lifetime: number,
+	started: number,
+	force_handle: LinearVelocity,
 }
 
 local components = {
 	Player = world:component<<Player>>(),
 	Character = world:component<<Character>>(),
-	Ability = world:component<<Ability>>(),
+	Dash = world:component<<Dash>>(),
+	DashTarget = world:component<<CharacterModel>>(),
 	Networked = world:component(),
 }
 
