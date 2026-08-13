@@ -37,12 +37,18 @@ export type Dash = {
 	force_handle: LinearVelocity,
 }
 
+export type CameraFOV = {
+	fov: number,
+	kick: () -> (),
+}
+
 local components = {
 	Player = world:component<<Player>>(),
 	Character = world:component<<Character>>(),
 	Dash = world:component<<Dash>>(),
 	DashTarget = world:component<<CharacterModel>>(),
 	Networked = world:component(),
+	CameraFOV = world:component(),
 }
 
 world:add(components.Character, components.Networked)

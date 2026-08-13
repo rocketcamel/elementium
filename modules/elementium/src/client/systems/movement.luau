@@ -27,6 +27,10 @@ local function movement_dash(
 	dash.force_handle = force
 	dash.started = os.clock()
 	world:set(entity, components.Dash, dash)
+
+	local camera =
+		world:get(components.CameraFOV, components.CameraFOV) :: ecs.CameraFOV
+	camera.kick()
 end
 
 local query = world:query(components.Dash, components.DashTarget):cached()
