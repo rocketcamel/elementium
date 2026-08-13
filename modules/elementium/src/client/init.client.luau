@@ -28,7 +28,7 @@ ContextActionService:BindAction("dash", function(_, state)
 	local dash = {
 		from = "rocketcamel2",
 		velocity = 100,
-		lifetime = 1,
+		lifetime = 0.15,
 		active = false,
 	}
 

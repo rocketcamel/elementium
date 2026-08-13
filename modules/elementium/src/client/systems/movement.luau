@@ -27,24 +27,30 @@ local function movement_dash(
 	dash.force_handle = force
 	dash.started = os.clock()
 	world:set(entity, components.Dash, dash)
-
-	task.delay(dash.lifetime, function() world:delete(entity) end)
 end
 
 local query = world:query(components.Dash, components.DashTarget):cached()
 
-local function movement()
+local function movement(delta: number)
 	for entity, dash, target in query do
 		if dash.from ~= Players.LocalPlayer.Name then continue end
 
 		if dash.active then
-			local t =
-				math.clamp((os.clock() - dash.started) / dash.lifetime, 0, 1)
-			local mult = (1.5 - t) ^ 2
+			if dash.ending then
+				if dash.velocity > 20 then
+					dash.velocity = math.max(0, dash.velocity - 250 * delta)
+				else
+					world:delete(entity)
+					continue
+				end
+			end
 
 			local look_vector = target.HumanoidRootPart.CFrame.LookVector
-			dash.force_handle.VectorVelocity = look_vector
-				* (dash.velocity * mult)
+			dash.force_handle.VectorVelocity = look_vector * dash.velocity
+
+			if (os.clock() - dash.started) >= dash.lifetime then
+				dash.ending = true
+			end
 		else
 			dash.active = true
 			movement_dash(entity, target, dash)

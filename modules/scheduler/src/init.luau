@@ -1,6 +1,6 @@
 local jabby = require "./roblox_packages/jabby"
 
-type System = () -> ()
+type System = (delta: number) -> ()
 
 export type Info = {
 	id: number,
@@ -54,20 +54,20 @@ local function scheduler()
 		end
 	end
 
-	local function run_phase(phase: Phase)
+	local function run_phase(phase: Phase, delta: number)
 		for _, info in systems[phase] do
 			jabby_scheduler:run(info.id, function()
 				local now = os.clock()
 
-				info.system()
+				info.system(delta)
 				info.delta = (os.clock() - now)
 			end)
 		end
 	end
 
-	local function run()
+	local function run(delta: number)
 		if not started then
-			run_phase "startup"
+			run_phase("startup", delta)
 			started = true
 
 			for _, info in systems["startup"] do
@@ -78,7 +78,7 @@ local function scheduler()
 		end
 
 		for _, phase in PHASE_ORDER do
-			run_phase(phase)
+			run_phase(phase, delta)
 		end
 	end
 

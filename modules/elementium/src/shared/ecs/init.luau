@@ -33,6 +33,7 @@ export type Dash = {
 	active: boolean,
 	lifetime: number,
 	started: number,
+	ending: boolean?,
 	force_handle: LinearVelocity,
 }
 
@@ -55,7 +56,9 @@ local ecs_scheduler = scheduler.create()
 
 local function create()
 	local function server()
-		RunService.PostSimulation:Connect(function() ecs_scheduler:run() end)
+		RunService.PostSimulation:Connect(
+			function(delta) ecs_scheduler.run(delta) end
+		)
 	end
 
 	local function client()
@@ -73,7 +76,9 @@ local function create()
 			Enum.KeyCode.F4
 		)
 
-		RunService.PostSimulation:Connect(function() ecs_scheduler:run() end)
+		RunService.PostSimulation:Connect(
+			function(delta) ecs_scheduler.run(delta) end
+		)
 	end
 
 	jabby.register({
