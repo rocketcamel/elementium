@@ -2,6 +2,7 @@ local Players = game:GetService "Players"
 
 local ecs = require "../../shared/ecs"
 local jecs = require "../../roblox_packages/jecs"
+local transitions = require "./character_transition"
 
 local world = ecs.world
 local components = ecs.components
@@ -9,10 +10,17 @@ local components = ecs.components
 local animation_tracks: { [ecs.CharacterModel]: { animation: Animation, track: AnimationTrack } } =
 	{}
 
+local n = 0
+
 world:set(components.Dash, jecs.OnRemove, function(entity, id)
 	local data = world:get(entity, components.Dash)
 	local target = world:get(entity, components.DashTarget)
 	if not data then return end
+
+	local character_state = world:get(
+		components.CharacterState,
+		components.CharacterState
+	) :: ecs.CharacterState
 
 	if target then
 		local node = animation_tracks[target]
@@ -22,10 +30,14 @@ world:set(components.Dash, jecs.OnRemove, function(entity, id)
 			animation_tracks[target] = nil
 		end
 
-		target.Humanoid:SetStateEnabled(
-			Enum.HumanoidStateType.FallingDown,
-			true
-		)
+		if data.n == n then
+			character_state.change(transitions.resolve_character_state(target))
+
+			target.Humanoid:SetStateEnabled(
+				Enum.HumanoidStateType.FallingDown,
+				true
+			)
+		end
 	end
 
 	data.force_handle:Destroy()
@@ -44,6 +56,10 @@ local function movement_dash(
 
 	dash.force_handle = force
 	dash.started = os.clock()
+
+	n += 1
+	dash.n = n
+
 	world:set(entity, components.Dash, dash)
 
 	target.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)

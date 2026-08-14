@@ -35,6 +35,7 @@ export type Dash = {
 	active: boolean,
 	lifetime: number,
 	started: number,
+	n: number,
 	ending: boolean?,
 	force_handle: LinearVelocity,
 }
@@ -44,6 +45,13 @@ export type CameraFOV = {
 	kick: () -> (),
 }
 
+export type Motion = "none" | "running" | "dashing" | "sliding"
+
+export type CharacterState = {
+	motion: Motion,
+	change: (new_motion: Motion) -> (),
+}
+
 local components = {
 	Player = world:component<<Player>>(),
 	Character = world:component<<Character>>(),
@@ -51,6 +59,7 @@ local components = {
 	DashTarget = world:component<<CharacterModel>>(),
 	Networked = world:component(),
 	CameraFOV = world:component(),
+	CharacterState = world:component<<CharacterState>>(),
 }
 
 world:add(components.Character, components.Networked)
