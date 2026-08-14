@@ -27,7 +27,7 @@ function actions.dashing()
 	jecs.bulk_insert(
 		world,
 		ability,
-		{ components.Dash, components.DashTarget },
+		{ components.Dash, components.AbilityTarget },
 		{ dash, target }
 	)
 end

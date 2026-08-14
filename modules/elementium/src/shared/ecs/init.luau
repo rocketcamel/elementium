@@ -36,7 +36,16 @@ export type Dash = {
 	lifetime: number,
 	started: number,
 	n: number,
+	animation_slot: number,
 	ending: boolean?,
+	force_handle: LinearVelocity,
+}
+
+export type Slide = {
+	velocity: number,
+	lifetime: number,
+	active: boolean,
+	n: number,
 	force_handle: LinearVelocity,
 }
 
@@ -56,7 +65,8 @@ local components = {
 	Player = world:component<<Player>>(),
 	Character = world:component<<Character>>(),
 	Dash = world:component<<Dash>>(),
-	DashTarget = world:component<<CharacterModel>>(),
+	Slide = world:component<<Slide>>(),
+	AbilityTarget = world:component<<CharacterModel>>(),
 	Networked = world:component(),
 	CameraFOV = world:component(),
 	CharacterState = world:component<<CharacterState>>(),
