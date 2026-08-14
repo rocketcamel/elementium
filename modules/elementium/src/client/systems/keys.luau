@@ -24,8 +24,7 @@ local function keys()
 			active = false,
 		}
 
-		local target =
-			workspace:WaitForChild(Players.LocalPlayer.Name) :: ecs.CharacterModel
+		local target = Players.LocalPlayer.Character :: ecs.CharacterModel
 
 		print(ability, dash, target)
 

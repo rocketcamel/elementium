@@ -12,7 +12,9 @@ export type CharacterModel = Model & {
 	HumanoidRootPart: BasePart & {
 		RootAttachment: Attachment,
 	},
-	Humanoid: Humanoid,
+	Humanoid: Humanoid & {
+		Animator: Animator,
+	},
 	["Left Arm"]: BasePart,
 	["Right Arm"]: BasePart,
 	["Left Leg"]: BasePart,

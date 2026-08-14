@@ -6,9 +6,27 @@ local jecs = require "../../roblox_packages/jecs"
 local world = ecs.world
 local components = ecs.components
 
+local animation_tracks: { [ecs.CharacterModel]: { animation: Animation, track: AnimationTrack } } =
+	{}
+
 world:set(components.Dash, jecs.OnRemove, function(entity, id)
 	local data = world:get(entity, components.Dash)
+	local target = world:get(entity, components.DashTarget)
 	if not data then return end
+
+	if target then
+		local node = animation_tracks[target]
+
+		if node then
+			node.track:Destroy()
+			animation_tracks[target] = nil
+		end
+
+		target.Humanoid:SetStateEnabled(
+			Enum.HumanoidStateType.FallingDown,
+			true
+		)
+	end
 
 	data.force_handle:Destroy()
 end)
@@ -22,11 +40,21 @@ local function movement_dash(
 	force.Parent = target
 	force.Attachment0 = target.HumanoidRootPart.RootAttachment
 	force.ForceLimitMode = Enum.ForceLimitMode.PerAxis
-	force.MaxAxesForce = Vector3.new(math.huge, 0, math.huge)
+	force.MaxAxesForce = Vector3.new(50000, 0, 50000)
 
 	dash.force_handle = force
 	dash.started = os.clock()
 	world:set(entity, components.Dash, dash)
+
+	target.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+	local animation = Instance.new "Animation"
+	animation.AnimationId = "rbxassetid://85240720810252"
+
+	local track = target.Humanoid.Animator:LoadAnimation(animation)
+	track:Play()
+
+	animation_tracks[target] = { animation = animation, track = track }
 
 	local camera =
 		world:get(components.CameraFOV, components.CameraFOV) :: ecs.CameraFOV
