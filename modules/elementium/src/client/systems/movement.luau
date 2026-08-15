@@ -30,7 +30,7 @@ world:set(components.Dash, jecs.OnRemove, function(entity, id)
 
 		if node then
 			node.track:Destroy()
-			node = nil
+			tracks[data.animation_slot] = nil
 		end
 
 		if data.n == n then
@@ -48,7 +48,30 @@ end)
 
 world:set(components.Slide, jecs.OnRemove, function(entity, id)
 	local data = world:get(entity, components.Slide)
+	local target = world:get(entity, components.AbilityTarget)
 	if not data then return end
+
+	local character_state = world:get(
+		components.CharacterState,
+		components.CharacterState
+	) :: ecs.CharacterState
+
+	if target then
+		local tracks = animation_tracks[target]
+		local node = tracks[data.n]
+
+		if node then
+			node.track:Destroy()
+			tracks[data.n] = nil
+		end
+
+		character_state.change(transitions.resolve_character_state(target))
+
+		target.Humanoid:SetStateEnabled(
+			Enum.HumanoidStateType.FallingDown,
+			true
+		)
+	end
 
 	data.force_handle:Destroy()
 end)
@@ -104,9 +127,25 @@ local function movement_slide(
 	force.MaxAxesForce = Vector3.new(50000, 0, 50000)
 
 	slide.force_handle = force
+
+	track_slot += 1
+	slide.n = track_slot
+
 	world:set(entity, components.Slide, slide)
 
 	target.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+	local animation = Instance.new "Animation"
+	animation.AnimationId = "rbxassetid://75583895817610"
+
+	local track = target.Humanoid.Animator:LoadAnimation(animation)
+	track.Looped = true
+	track:Play()
+
+	if not animation_tracks[target] then animation_tracks[target] = {} end
+
+	animation_tracks[target][track_slot] =
+		{ animation = animation, track = track }
 end
 
 local dash_query =
@@ -142,6 +181,16 @@ local function movement(delta: number)
 
 	for entity, slide, target in slide_query do
 		if slide.active then
+			local look_vector = target.HumanoidRootPart.CFrame.LookVector
+			look_vector = Vector3.new(look_vector.X, 0, look_vector.Z)
+
+			local angle = math.acos(slide.direction:Dot(look_vector))
+
+			if angle > 0.61086523819802 then
+				slide.direction = slide.direction:Lerp(look_vector, 0.2).Unit
+			end
+
+			slide.force_handle.VectorVelocity = slide.direction * slide.velocity
 		else
 			slide.active = true
 			movement_slide(entity, target, slide)

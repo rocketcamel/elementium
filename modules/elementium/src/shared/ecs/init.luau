@@ -43,8 +43,10 @@ export type Dash = {
 
 export type Slide = {
 	velocity: number,
-	lifetime: number,
+	direction: Vector3,
 	active: boolean,
+	started: number,
+	lifetime: number,
 	n: number,
 	force_handle: LinearVelocity,
 }
@@ -61,9 +63,16 @@ export type CharacterState = {
 	change: (new_motion: Motion) -> (),
 }
 
+export type Ability = "dash" | "slide"
+
+export type Movement = {
+	current_ability: Ability?,
+}
+
 local components = {
 	Player = world:component<<Player>>(),
 	Character = world:component<<Character>>(),
+	Movement = world:component(),
 	Dash = world:component<<Dash>>(),
 	Slide = world:component<<Slide>>(),
 	AbilityTarget = world:component<<CharacterModel>>(),

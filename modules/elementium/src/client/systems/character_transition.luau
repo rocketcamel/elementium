@@ -8,7 +8,27 @@ local components = ecs.components
 
 local actions = {}
 
-function actions.sliding() end
+function actions.sliding()
+	local ability = world:entity()
+
+	local target = Players.LocalPlayer.Character :: ecs.CharacterModel
+
+	local root = target.HumanoidRootPart
+
+	local slide = {
+		velocity = root.AssemblyLinearVelocity.Magnitude,
+		direction = root.AssemblyLinearVelocity.Unit,
+	}
+
+	print(ability, slide, target)
+
+	jecs.bulk_insert(
+		world,
+		ability,
+		{ components.Slide, components.AbilityTarget },
+		{ slide, target }
+	)
+end
 
 function actions.dashing()
 	local ability = world:entity()
