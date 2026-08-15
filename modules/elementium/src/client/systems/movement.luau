@@ -12,13 +12,15 @@ local animation_tracks: { [ecs.CharacterModel]: { { animation: Animation, track:
 
 local track_slot = 0
 
-local n = 0
+local dash_n = 0
 
 world:set(components.Dash, jecs.OnRemove, function(entity, id)
 	local data = world:get(entity, components.Dash)
 	local target = world:get(entity, components.AbilityTarget)
 	if not data then return end
 
+	local request =
+		world:get(components.Motion, components.Motion) :: ecs.MotionRequest
 	local character_state = world:get(
 		components.CharacterState,
 		components.CharacterState
@@ -29,13 +31,20 @@ world:set(components.Dash, jecs.OnRemove, function(entity, id)
 		local node = tracks[data.animation_slot]
 
 		if node then
-			node.track:Destroy()
+			node.track:Stop()
 			tracks[data.animation_slot] = nil
 		end
 
-		if data.n == n then
-			character_state.change(transitions.resolve_character_state(target))
+		if character_state.active_ability_id == entity then
+			print("active id", character_state.active_ability_id, entity)
+			character_state.active_ability_id = nil
+			request.motion = transitions.resolve_character_state(target)
+			request.reason = "ability_end"
 
+			world:set(components.Motion, components.Motion, request)
+		end
+
+		if data.n == dash_n then
 			target.Humanoid:SetStateEnabled(
 				Enum.HumanoidStateType.FallingDown,
 				true
@@ -51,6 +60,8 @@ world:set(components.Slide, jecs.OnRemove, function(entity, id)
 	local target = world:get(entity, components.AbilityTarget)
 	if not data then return end
 
+	local request =
+		world:get(components.Motion, components.Motion) :: ecs.MotionRequest
 	local character_state = world:get(
 		components.CharacterState,
 		components.CharacterState
@@ -61,11 +72,16 @@ world:set(components.Slide, jecs.OnRemove, function(entity, id)
 		local node = tracks[data.n]
 
 		if node then
-			node.track:Destroy()
+			node.track:Stop()
 			tracks[data.n] = nil
 		end
 
-		character_state.change(transitions.resolve_character_state(target))
+		if character_state.active_ability_id == entity then
+			request.motion = transitions.resolve_character_state(target)
+			request.reason = "ability_end"
+
+			world:set(components.Motion, components.Motion, request)
+		end
 
 		target.Humanoid:SetStateEnabled(
 			Enum.HumanoidStateType.FallingDown,
@@ -90,8 +106,8 @@ local function movement_dash(
 	dash.force_handle = force
 	dash.started = os.clock()
 
-	n += 1
-	dash.n = n
+	dash_n += 1
+	dash.n = dash_n
 	track_slot += 1
 	dash.animation_slot = track_slot
 
@@ -187,7 +203,7 @@ local function movement(delta: number)
 			local angle = math.acos(slide.direction:Dot(look_vector))
 
 			if angle > 0.61086523819802 then
-				slide.direction = slide.direction:Lerp(look_vector, 0.2).Unit
+				slide.direction = slide.direction:Lerp(look_vector, 0.1).Unit
 			end
 
 			slide.force_handle.VectorVelocity = slide.direction * slide.velocity

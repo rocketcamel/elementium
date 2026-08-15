@@ -36,6 +36,7 @@ export type Dash = {
 	lifetime: number,
 	started: number,
 	n: number,
+	generation: number,
 	animation_slot: number,
 	ending: boolean?,
 	force_handle: LinearVelocity,
@@ -48,6 +49,7 @@ export type Slide = {
 	started: number,
 	lifetime: number,
 	n: number,
+	generation: number,
 	force_handle: LinearVelocity,
 }
 
@@ -57,22 +59,31 @@ export type CameraFOV = {
 }
 
 export type Motion = "none" | "running" | "dashing" | "sliding"
+export type MotionRequestReason = "input_began" | "input_end" | "ability_end"
+
+export type MotionRequest = {
+	motion: Motion,
+	reason: MotionRequestReason,
+	id: number,
+}
+
+export type AbilitySpawn = {
+	motion: Motion,
+	target: CharacterModel,
+	generation: number,
+}
 
 export type CharacterState = {
 	motion: Motion,
-	change: (new_motion: Motion) -> (),
-}
-
-export type Ability = "dash" | "slide"
-
-export type Movement = {
-	current_ability: Ability?,
+	active_ability_id: jecs.Entity?,
+	generation: number,
 }
 
 local components = {
 	Player = world:component<<Player>>(),
 	Character = world:component<<Character>>(),
-	Movement = world:component(),
+	Motion = world:component<<MotionRequest>>(),
+	AbilitySpawn = world:component<<AbilitySpawn>>(),
 	Dash = world:component<<Dash>>(),
 	Slide = world:component<<Slide>>(),
 	AbilityTarget = world:component<<CharacterModel>>(),

@@ -1,59 +1,9 @@
 local Players = game:GetService "Players"
 
 local ecs = require "../../shared/ecs"
-local jecs = require "../../roblox_packages/jecs"
 
 local world = ecs.world
 local components = ecs.components
-
-local actions = {}
-
-function actions.sliding()
-	local ability = world:entity()
-
-	local target = Players.LocalPlayer.Character :: ecs.CharacterModel
-
-	local root = target.HumanoidRootPart
-
-	local slide = {
-		velocity = root.AssemblyLinearVelocity.Magnitude,
-		direction = root.AssemblyLinearVelocity.Unit,
-	}
-
-	print(ability, slide, target)
-
-	jecs.bulk_insert(
-		world,
-		ability,
-		{ components.Slide, components.AbilityTarget },
-		{ slide, target }
-	)
-end
-
-function actions.dashing()
-	local ability = world:entity()
-
-	local dash = {
-		from = Players.LocalPlayer.Name,
-		velocity = 100,
-		lifetime = 0.15,
-		active = false,
-	}
-
-	local target = Players.LocalPlayer.Character :: ecs.CharacterModel
-
-	print(ability, dash, target)
-
-	jecs.bulk_insert(
-		world,
-		ability,
-		{ components.Dash, components.AbilityTarget },
-		{ dash, target }
-	)
-end
-
-function actions.running() end
-function actions.none() end
 
 local guards: { [ecs.Motion]: { [ecs.Motion]: boolean } } = {
 	none = { none = true, running = true, dashing = true, sliding = true },
@@ -70,17 +20,48 @@ local function resolve_character_state(target: ecs.CharacterModel): ecs.Motion
 	end
 end
 
-local function change_motion(new_motion: ecs.Motion)
+world:set(components.CharacterState, components.CharacterState, {
+	motion = "none" :: "none",
+	active_ability_id = nil,
+	generation = 0,
+})
+
+local function create_spawn(motion: ecs.Motion, generation: number)
+	local entity = world:entity()
+
+	local spawn = {
+		motion = motion,
+		target = Players.LocalPlayer.Character :: ecs.CharacterModel,
+		generation = generation,
+	}
+
+	world:set(entity, components.AbilitySpawn, spawn)
+end
+
+local last_id = 0
+
+local function character_transitions()
+	local request =
+		world:get(components.Motion, components.Motion) :: ecs.MotionRequest
 	local current_state = world:get(
 		components.CharacterState,
 		components.CharacterState
 	) :: ecs.CharacterState
-	assert(current_state)
+
+	if request.id <= last_id then return end
+	last_id = request.id
 
 	local guard = guards[current_state.motion]
 
-	if guard[new_motion] then
-		current_state.motion = new_motion
+	if guard[request.motion] then
+		if current_state.active_ability_id then
+			local old_active = current_state.active_ability_id
+			current_state.active_ability_id = nil
+			world:delete(old_active)
+		end
+
+		current_state.motion = request.motion
+		current_state.generation += 1
 
 		world:set(
 			components.CharacterState,
@@ -88,20 +69,18 @@ local function change_motion(new_motion: ecs.Motion)
 			current_state
 		)
 
-		actions[new_motion]()
+		if
+			current_state.motion == "dashing"
+			or current_state.motion == "sliding"
+		then
+			create_spawn(current_state.motion, current_state.generation)
+		end
 	end
-end
-
-local function character_transitions()
-	world:set(components.CharacterState, components.CharacterState, {
-		motion = "none" :: "none",
-		change = change_motion,
-	})
 end
 
 return {
 	system = character_transitions,
-	phase = "startup",
+	phase = "pre_simulation",
 
 	resolve_character_state = resolve_character_state,
 }
