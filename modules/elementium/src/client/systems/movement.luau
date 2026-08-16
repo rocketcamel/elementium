@@ -36,7 +36,6 @@ world:set(components.Dash, jecs.OnRemove, function(entity, id)
 		end
 
 		if character_state.active_ability_id == entity then
-			print("active id", character_state.active_ability_id, entity)
 			character_state.active_ability_id = nil
 			request.motion = transitions.resolve_character_state(target)
 			request.reason = "ability_end"
@@ -204,6 +203,14 @@ local function movement(delta: number)
 
 			if angle > 0.61086523819802 then
 				slide.direction = slide.direction:Lerp(look_vector, 0.1).Unit
+			end
+
+			slide.velocity =
+				math.max(slide.velocity - 5 * slide.velocity ^ 0.5 * delta, 0)
+
+			if slide.velocity < 5 then
+				world:delete(entity)
+				continue
 			end
 
 			slide.force_handle.VectorVelocity = slide.direction * slide.velocity
