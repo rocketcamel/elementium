@@ -51,6 +51,7 @@ export type Slide = {
 	n: number,
 	generation: number,
 	force_handle: LinearVelocity,
+	orient_handle: AlignOrientation,
 }
 
 export type CameraFOV = {

@@ -1,3 +1,4 @@
+local Players = game:GetService "Players"
 local ecs = require "../ReplicatedStorage/shared/ecs"
 local net = require "../ReplicatedStorage/shared/ecs/net"
 local services = require "./client/services"

@@ -86,9 +86,12 @@ world:set(components.Slide, jecs.OnRemove, function(entity, id)
 			Enum.HumanoidStateType.FallingDown,
 			true
 		)
+		target.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+		target.Humanoid.AutoRotate = true
 	end
 
 	data.force_handle:Destroy()
+	data.orient_handle:Destroy()
 end)
 
 local function movement_dash(
@@ -141,7 +144,15 @@ local function movement_slide(
 	force.ForceLimitMode = Enum.ForceLimitMode.PerAxis
 	force.MaxAxesForce = Vector3.new(50000, 0, 50000)
 
+	local orient = Instance.new "AlignOrientation"
+	orient.Parent = target
+	orient.Attachment0 = target.HumanoidRootPart.RootAttachment
+	orient.MaxTorque = 50000
+	orient.Mode = Enum.OrientationAlignmentMode.OneAttachment
+	orient.RigidityEnabled = true
+
 	slide.force_handle = force
+	slide.orient_handle = orient
 
 	track_slot += 1
 	slide.n = track_slot
@@ -149,6 +160,8 @@ local function movement_slide(
 	world:set(entity, components.Slide, slide)
 
 	target.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+	target.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+	target.Humanoid.AutoRotate = false
 
 	local animation = Instance.new "Animation"
 	animation.AnimationId = "rbxassetid://75583895817610"
@@ -196,14 +209,11 @@ local function movement(delta: number)
 
 	for entity, slide, target in slide_query do
 		if slide.active then
-			local look_vector = target.HumanoidRootPart.CFrame.LookVector
+			local look_vector = target.Humanoid.MoveDirection
 			look_vector = Vector3.new(look_vector.X, 0, look_vector.Z)
 
-			local angle = math.acos(slide.direction:Dot(look_vector))
-
-			if angle > 0.61086523819802 then
-				slide.direction = slide.direction:Lerp(look_vector, 0.1).Unit
-			end
+			local alpha = math.min(2 * delta, 1)
+			slide.direction = slide.direction:Lerp(look_vector, alpha).Unit
 
 			slide.velocity =
 				math.max(slide.velocity - 5 * slide.velocity ^ 0.5 * delta, 0)
@@ -214,6 +224,8 @@ local function movement(delta: number)
 			end
 
 			slide.force_handle.VectorVelocity = slide.direction * slide.velocity
+			slide.orient_handle.CFrame =
+				CFrame.lookAt(Vector3.zero, slide.direction)
 		else
 			slide.active = true
 			movement_slide(entity, target, slide)
