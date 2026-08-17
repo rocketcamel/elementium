@@ -3,6 +3,7 @@ local RunService = game:GetService "RunService"
 local jabby = require "../roblox_packages/jabby"
 local jecs = require "../roblox_packages/jecs"
 local scheduler = require "../roblox_packages/scheduler"
+local storage = require "./storage"
 
 local world = jecs.world()
 
@@ -82,9 +83,15 @@ export type CharacterState = {
 	generation: number,
 }
 
+export type CharacterRef = {
+	instance: CharacterModel,
+	invalidated: boolean,
+}
+
 local components = {
 	Player = world:component<<Player>>(),
 	Character = world:component<<Character>>(),
+	CharacterRef = world:component<<CharacterRef>>(),
 	Motion = world:component<<MotionRequest>>(),
 	AbilitySpawn = world:component<<AbilitySpawn>>(),
 	Dash = world:component<<Dash>>(),
@@ -146,6 +153,19 @@ local function create()
 			scheduler = ecs_scheduler.jabby_scheduler,
 		},
 	} :: any)
+
+	jabby.set_check_function(function(player)
+		local session = storage.get_session(player)
+
+		if session then
+			local permissions = session:get_player_permissions()
+			if permissions and table.find(permissions, "jabby") then
+				return true
+			end
+		end
+
+		return false
+	end)
 
 	if RunService:IsServer() then
 		server()

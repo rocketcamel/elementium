@@ -25,7 +25,7 @@ local function handle_emote(player: Player, name: string)
 		sound.Parent = target.HumanoidRootPart
 		sound.SoundId = "rbxassetid://14055443115"
 		sound.Volume = 1
-		sound.TimePosition = 41.3
+		sound.TimePosition = 48.3
 
 		sound:Play()
 

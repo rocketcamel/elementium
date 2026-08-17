@@ -186,6 +186,8 @@ local function movement(delta: number)
 			continue
 		end
 
+		if not target then continue end
+
 		if not dash.active then
 			local look_vector = target.HumanoidRootPart.CFrame.LookVector
 

@@ -65,7 +65,7 @@ local function velocity_compose(delta: number)
 	local active = 0
 	local target = Players.LocalPlayer.Character :: ecs.CharacterModel
 
-	if not target then return end
+	if not target or not target:FindFirstChild "Humanoid" then return end
 
 	local state = world:get(VelocityState, VelocityState) :: State
 
@@ -117,7 +117,7 @@ local function velocity_compose(delta: number)
 
 	local should_force = active > 0 and result.Magnitude > 0.5
 
-	if not state.handle then
+	if not state.handle or state.handle.Parent ~= target then
 		local force = Instance.new "LinearVelocity"
 		force.Parent = target
 		force.ForceLimitMode = Enum.ForceLimitMode.PerAxis

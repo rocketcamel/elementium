@@ -4,8 +4,13 @@ local CURRENT_REVISION = 1
 local EXPONENT_BACKOFF = 2
 local MAX_BACKOFF = 30
 
+export type PlayerMeta = {
+	permissions: { string },
+}
+
 export type Store = {
 	shards: number,
+	meta: PlayerMeta?,
 }
 
 export type StoredData<T> = {
@@ -24,6 +29,7 @@ export type Session<T> = {
 	data: T,
 
 	commit: (session: Session<T>) -> (),
+	get_player_permissions: (session: Session<T>) -> { string }?,
 }
 
 local session_player_map = {}
@@ -45,14 +51,20 @@ local function lock_taken<T>(store: StoredData<T>): boolean
 end
 
 local function lock_store<T>(session: Session<T>)
+	local n = 0
+
 	local function attempt()
+		n += 1
+
 		return session.store:UpdateAsync(
 			session.key,
 			function(store: StoredData<Store>?)
 				if not store then store = default_storage() end
 				assert(store)
 
-				if store.lock and store.lock.expires > os.time() then return end
+				if store.lock and store.lock.expires > os.time() and n <= 5 then
+					return
+				end
 
 				store.lock = {
 					owner = game.JobId,
@@ -98,6 +110,17 @@ local function commit_store<T>(session: Session<T>)
 	end)
 end
 
+local function get_session(player: Player): Session<Store>
+	return session_player_map[player.User.Id]
+end
+
+local function get_player_permissions(session: Session<Store>): { string }?
+	local meta = session.data.meta
+	if not meta then return nil end
+
+	return meta.permissions
+end
+
 local function initialize(player: Player): Session<Store>
 	local key = `player_store#{player.User.Id}`
 	local store = DataStoreService:GetDataStore "player_storage"
@@ -107,6 +130,7 @@ local function initialize(player: Player): Session<Store>
 		store = store,
 		data = { shards = 0 },
 		commit = commit_store,
+		get_player_permissions = get_player_permissions,
 	}
 
 	lock_store(session)
@@ -117,10 +141,13 @@ end
 
 local function cleanup(player: Player)
 	local session = session_player_map[player.User.Id]
-	unlock_store(session)
+
+	if session then unlock_store(session :: any) end
 end
 
 return {
 	initialize = initialize,
 	cleanup = cleanup,
+
+	get_session = get_session,
 }

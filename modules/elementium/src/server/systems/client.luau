@@ -1,5 +1,6 @@
 local Players = game:GetService "Players"
 
+local conch = require "../../../ReplicatedStorage/roblox_packages/conch"
 local ecs = require "../../../ReplicatedStorage/shared/ecs"
 local jecs = require "../../../ReplicatedStorage/roblox_packages/jecs"
 local storage = require "../../../ReplicatedStorage/shared/storage"
@@ -56,7 +57,16 @@ local function client()
 		player:SetAttribute("entity_id", entity)
 		create_character(entity, player)
 
-		storage.initialize(player)
+		local session = storage.initialize(player)
+		local permissions = session:get_player_permissions()
+
+		if permissions then
+			local user = conch.get_user(player)
+			local roles = unpack(permissions)
+			conch.give_roles(user, roles)
+
+			print("assigned role(s)", roles, "to player", player)
+		end
 	end)
 
 	Players.PlayerRemoving:Connect(function(player) storage.cleanup(player) end)

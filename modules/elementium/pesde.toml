@@ -9,7 +9,12 @@ build_files = ["src"]
 [indices]
 default = "https://github.com/pesde-pkg/index"
 
+[wally_indices]
+default = "https://github.com/UpliftGames/wally-index"
+
 [dependencies]
 jecs = { repo = "ukendio/jecs", rev = "v0.11.0" }
 jabby = { repo = "alicesaidhi/jabby", rev = "436e482" }
 scheduler = { workspace = "rocketcamel/elementium_scheduler" }
+conch = { wally = "alicesaidhi/conch", version = "0.4.0" }
+conch_ui = { wally = "alicesaidhi/conch-ui", version = "0.4.0" }

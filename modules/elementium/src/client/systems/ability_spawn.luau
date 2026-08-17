@@ -37,7 +37,7 @@ end
 function dashing(entity: jecs.Entity, spawn: ecs.AbilitySpawn)
 	local dash = {
 		from = Players.LocalPlayer.Name,
-		velocity = 100,
+		velocity = 120,
 		lifetime = 0.15,
 		lifecycle = 0.5,
 		generation = spawn.generation,
@@ -62,6 +62,11 @@ local function ability_spawn()
 			components.CharacterState,
 			components.CharacterState
 		) :: ecs.CharacterState
+
+		if not spawn.target or not spawn.target:FindFirstChild "Humanoid" then
+			world:delete(entity)
+			continue
+		end
 
 		local ability = world:entity()
 
