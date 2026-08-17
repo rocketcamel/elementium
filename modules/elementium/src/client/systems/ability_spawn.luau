@@ -12,9 +12,15 @@ function sliding(entity: jecs.Entity, spawn: ecs.AbilitySpawn)
 	local target = spawn.target
 	local root = target.HumanoidRootPart
 
+	local direction = Vector3.new(
+		root.AssemblyLinearVelocity.X,
+		0,
+		root.AssemblyLinearVelocity.Z
+	).Unit
+
 	local slide = {
 		velocity = root.AssemblyLinearVelocity.Magnitude,
-		direction = root.AssemblyLinearVelocity.Unit,
+		direction = direction,
 		generation = spawn.generation,
 	}
 
@@ -33,6 +39,7 @@ function dashing(entity: jecs.Entity, spawn: ecs.AbilitySpawn)
 		from = Players.LocalPlayer.Name,
 		velocity = 100,
 		lifetime = 0.15,
+		lifecycle = 0.5,
 		generation = spawn.generation,
 		active = false,
 	}

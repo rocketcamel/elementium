@@ -1,5 +1,6 @@
 local Players = game:GetService "Players"
 
+local composer = require "./velocity_compose"
 local ecs = require "../../shared/ecs"
 local jecs = require "../../roblox_packages/jecs"
 local transitions = require "./character_transition"
@@ -50,8 +51,6 @@ world:set(components.Dash, jecs.OnRemove, function(entity, id)
 			)
 		end
 	end
-
-	data.force_handle:Destroy()
 end)
 
 world:set(components.Slide, jecs.OnRemove, function(entity, id)
@@ -90,8 +89,19 @@ world:set(components.Slide, jecs.OnRemove, function(entity, id)
 		target.Humanoid.AutoRotate = true
 	end
 
-	data.force_handle:Destroy()
-	data.orient_handle:Destroy()
+	composer.remove_impulse(data.id)
+
+	composer.add_impulse {
+		group = "air",
+		direction = data.direction,
+		velocity = data.velocity * 0.80,
+		friction = 50,
+		threshold = 20,
+		steerable = true,
+		lifetime = math.huge,
+	}
+
+	if data.orient_handle then data.orient_handle:Destroy() end
 end)
 
 local function movement_dash(
@@ -99,13 +109,6 @@ local function movement_dash(
 	target: ecs.CharacterModel,
 	dash: ecs.Dash
 )
-	local force = Instance.new "LinearVelocity"
-	force.Parent = target
-	force.Attachment0 = target.HumanoidRootPart.RootAttachment
-	force.ForceLimitMode = Enum.ForceLimitMode.PerAxis
-	force.MaxAxesForce = Vector3.new(50000, 0, 50000)
-
-	dash.force_handle = force
 	dash.started = os.clock()
 
 	dash_n += 1
@@ -118,7 +121,7 @@ local function movement_dash(
 	target.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 
 	local animation = Instance.new "Animation"
-	animation.AnimationId = "rbxassetid://85240720810252"
+	animation.AnimationId = "rbxassetid://103216546035460"
 
 	local track = target.Humanoid.Animator:LoadAnimation(animation)
 	track:Play()
@@ -138,12 +141,6 @@ local function movement_slide(
 	target: ecs.CharacterModel,
 	slide: ecs.Slide
 )
-	local force = Instance.new "LinearVelocity"
-	force.Parent = target
-	force.Attachment0 = target.HumanoidRootPart.RootAttachment
-	force.ForceLimitMode = Enum.ForceLimitMode.PerAxis
-	force.MaxAxesForce = Vector3.new(50000, 0, 50000)
-
 	local orient = Instance.new "AlignOrientation"
 	orient.Parent = target
 	orient.Attachment0 = target.HumanoidRootPart.RootAttachment
@@ -151,7 +148,6 @@ local function movement_slide(
 	orient.Mode = Enum.OrientationAlignmentMode.OneAttachment
 	orient.RigidityEnabled = true
 
-	slide.force_handle = force
 	slide.orient_handle = orient
 
 	track_slot += 1
@@ -185,51 +181,72 @@ local function movement(delta: number)
 	for entity, dash, target in dash_query do
 		if dash.from ~= Players.LocalPlayer.Name then continue end
 
-		if dash.active then
-			if dash.ending then
-				if dash.velocity > 20 then
-					dash.velocity = math.max(0, dash.velocity - 250 * delta)
-				else
-					world:delete(entity)
-					continue
-				end
-			end
+		if dash.velocity < 20 then
+			world:delete(entity)
+			continue
+		end
 
+		if not dash.active then
 			local look_vector = target.HumanoidRootPart.CFrame.LookVector
-			dash.force_handle.VectorVelocity = look_vector * dash.velocity
 
-			if (os.clock() - dash.started) >= dash.lifetime then
-				dash.ending = true
-			end
-		else
+			local id = composer.add_impulse {
+				group = "dash",
+				direction = look_vector,
+				velocity = dash.velocity,
+				friction = 250,
+				lifetime = os.clock() + dash.lifetime,
+			}
+
+			dash.id = id
 			dash.active = true
+
 			movement_dash(entity, target, dash)
+
+			world:set(entity, components.Dash, dash)
+		end
+
+		if (os.clock() - dash.started) >= dash.lifecycle then
+			world:delete(entity)
 		end
 	end
 
 	for entity, slide, target in slide_query do
-		if slide.active then
-			local look_vector = target.Humanoid.MoveDirection
-			look_vector = Vector3.new(look_vector.X, 0, look_vector.Z)
+		if slide.velocity < 5 then
+			world:delete(entity)
+			continue
+		end
 
-			local alpha = math.min(2 * delta, 1)
-			slide.direction = slide.direction:Lerp(look_vector, alpha).Unit
+		local look_vector = target.Humanoid.MoveDirection
+		look_vector = Vector3.new(look_vector.X, 0, look_vector.Z)
 
-			slide.velocity =
-				math.max(slide.velocity - 5 * slide.velocity ^ 0.5 * delta, 0)
+		if not slide.active then
+			local id = composer.add_impulse {
+				group = "slide",
+				direction = look_vector,
+				velocity = slide.velocity,
+				friction = 0,
+				lifetime = math.huge,
+			}
 
-			if slide.velocity < 5 then
-				world:delete(entity)
-				continue
-			end
-
-			slide.force_handle.VectorVelocity = slide.direction * slide.velocity
-			slide.orient_handle.CFrame =
-				CFrame.lookAt(Vector3.zero, slide.direction)
-		else
+			slide.id = id
 			slide.active = true
+
 			movement_slide(entity, target, slide)
 		end
+
+		local alpha = math.min(2 * delta, 1)
+		slide.direction = slide.direction:Lerp(look_vector, alpha).Unit
+
+		slide.velocity =
+			math.max(slide.velocity - 5 * slide.velocity ^ 0.5 * delta, 0)
+
+		composer.update(slide.id, {
+			direction = slide.direction,
+			velocity = slide.velocity,
+		})
+
+		slide.orient_handle.CFrame =
+			CFrame.lookAt(Vector3.zero, slide.direction)
 	end
 end
 

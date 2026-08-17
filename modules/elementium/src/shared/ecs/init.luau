@@ -30,19 +30,21 @@ export type Character = {
 }
 
 export type Dash = {
+	id: number,
 	from: string,
 	velocity: number,
 	active: boolean,
 	lifetime: number,
+	lifecycle: number,
 	started: number,
 	n: number,
 	generation: number,
 	animation_slot: number,
-	ending: boolean?,
-	force_handle: LinearVelocity,
+	-- ending: boolean?,
 }
 
 export type Slide = {
+	id: number,
 	velocity: number,
 	direction: Vector3,
 	active: boolean,
