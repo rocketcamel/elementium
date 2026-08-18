@@ -76,11 +76,8 @@ local function net_send()
 		local initial_snapshot = {}
 
 		for player in players_added do
-			print(player.Name)
-			local set_ids = {}
-
-			print(storages)
 			for component, storage in storages do
+				local set_ids = {}
 				local set_values = {}
 				local set_index = 0
 

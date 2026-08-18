@@ -1,5 +1,3 @@
-local Players = game:GetService "Players"
-
 local composer = require "./velocity_compose"
 local ecs = require "../../shared/ecs"
 local jecs = require "../../roblox_packages/jecs"
@@ -28,12 +26,14 @@ world:set(components.Dash, jecs.OnRemove, function(entity, id)
 	) :: ecs.CharacterState
 
 	if target then
-		local tracks = animation_tracks[target]
-		local node = tracks[data.animation_slot]
+		if data.animation_slot then
+			local tracks = animation_tracks[target]
+			local node = tracks[data.animation_slot]
 
-		if node then
-			node.track:Stop()
-			tracks[data.animation_slot] = nil
+			if node then
+				node.track:Stop()
+				tracks[data.animation_slot] = nil
+			end
 		end
 
 		if character_state.active_ability_id == entity then
@@ -66,12 +66,14 @@ world:set(components.Slide, jecs.OnRemove, function(entity, id)
 	) :: ecs.CharacterState
 
 	if target then
-		local tracks = animation_tracks[target]
-		local node = tracks[data.n]
+		if data.n then
+			local tracks = animation_tracks[target]
+			local node = tracks[data.n]
 
-		if node then
-			node.track:Stop()
-			tracks[data.n] = nil
+			if node then
+				node.track:Stop()
+				tracks[data.n] = nil
+			end
 		end
 
 		if character_state.active_ability_id == entity then
@@ -90,12 +92,13 @@ world:set(components.Slide, jecs.OnRemove, function(entity, id)
 	end
 
 	composer.remove_impulse(data.id)
+	composer.remove_group "air"
 
 	composer.add_impulse {
 		group = "air",
 		direction = data.direction,
 		velocity = data.velocity * 0.80,
-		friction = 50,
+		friction = 100,
 		threshold = 20,
 		steerable = true,
 		lifetime = math.huge,
@@ -179,8 +182,6 @@ local slide_query =
 
 local function movement(delta: number)
 	for entity, dash, target in dash_query do
-		if dash.from ~= Players.LocalPlayer.Name then continue end
-
 		if dash.velocity < 20 then
 			world:delete(entity)
 			continue
@@ -247,6 +248,7 @@ local function movement(delta: number)
 			velocity = slide.velocity,
 		})
 
+		assert(slide.orient_handle)
 		slide.orient_handle.CFrame =
 			CFrame.lookAt(Vector3.zero, slide.direction)
 	end

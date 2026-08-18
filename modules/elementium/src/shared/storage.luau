@@ -27,12 +27,49 @@ export type Session<T> = {
 	key: string,
 	store: DataStore,
 	data: T,
+	listener: (T) -> (),
 
 	commit: (session: Session<T>) -> (),
+	updated: (session: Session<T>, fn: (T) -> ()) -> (),
+	patch: <U...>(session: Session<T>, (T, U...) -> T, U...) -> (),
 	get_player_permissions: (session: Session<T>) -> { string }?,
 }
 
 local session_player_map = {}
+
+local function noop() end
+
+local function clone<T>(x: T): T
+	if typeof(x) == "table" then
+		local t = table.clone(x) :: any
+
+		for k, v in t do
+			if typeof(k) == "table" or typeof(v) == "table" then
+				t[clone(k)] = clone(v)
+			end
+		end
+
+		return t
+	else
+		return x
+	end
+end
+
+local MIGRATIONS: { [number]: (Store) -> Store } = {}
+
+local function migrate_store(store: StoredData<Store>): StoredData<Store>
+	while store.rev < CURRENT_REVISION do
+		local migrate = MIGRATIONS[store.rev]
+		assert(migrate, `missing migration for rev {store.rev}`)
+
+		store.data = migrate(store.data)
+		store.rev += 1
+
+		print("applied migration", store.rev)
+	end
+
+	return store
+end
 
 local function default_storage(): StoredData<Store>
 	return {
@@ -71,7 +108,9 @@ local function lock_store<T>(session: Session<T>)
 					expires = os.time() + 5 * 60,
 				}
 
-				return store
+				local data = migrate_store(store)
+
+				return data
 			end
 		) :: StoredData<Store>
 	end
@@ -110,7 +149,27 @@ local function commit_store<T>(session: Session<T>)
 	end)
 end
 
-local function get_session(player: Player): Session<Store>
+local function run_updated<T>(session: Session<T>)
+	local data = session.data
+	local copy = clone(data)
+	local fn = session.listener
+
+	fn(copy)
+end
+
+local function updated<T>(session: Session<T>, fn: (T) -> ())
+	session.listener = fn
+	run_updated(session)
+end
+
+local function patch<T, U...>(session: Session<T>, fn: (T, U...) -> T, ...: U...)
+	local data = fn(session.data, ...)
+	session.data = data
+
+	run_updated(session)
+end
+
+local function get_session(player: Player): Session<Store>?
 	return session_player_map[player.User.Id]
 end
 
@@ -129,7 +188,11 @@ local function initialize(player: Player): Session<Store>
 		key = key,
 		store = store,
 		data = { shards = 0 },
+		listener = noop,
+
 		commit = commit_store,
+		updated = updated,
+		patch = patch,
 		get_player_permissions = get_player_permissions,
 	}
 

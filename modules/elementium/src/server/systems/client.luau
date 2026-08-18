@@ -29,12 +29,6 @@ world:set(
 	function(entity, id, data) update_character(data :: any) end
 )
 
-local function get_client(entity: jecs.Entity): Player
-	local player = world:get(entity, components.Player)
-	assert(player, `entity {entity} does not have a player component`)
-	return player
-end
-
 local function client()
 	local function create_character(entity_id: jecs.Entity, player: Player)
 		player.CharacterAdded:Connect(
@@ -60,12 +54,26 @@ local function client()
 		local session = storage.initialize(player)
 		local permissions = session:get_player_permissions()
 
+		world:set(entity, components.Session, session.data)
+
+		session:updated(
+			function(data) world:set(entity, components.Session, data) end
+		)
+
 		if permissions then
 			local user = conch.get_user(player)
-			local roles = unpack(permissions)
-			conch.give_roles(user, roles)
+			conch.give_roles(user, unpack(permissions))
 
-			print("assigned role(s)", roles, "to player", player)
+			world:set(entity, components.Meta, {
+				permissions = permissions,
+			})
+
+			print(
+				"assigned role(s)",
+				table.concat(permissions, ","),
+				"to player",
+				player
+			)
 		end
 	end)
 

@@ -59,6 +59,15 @@ local function remove_impulse(id: number)
 	if impulse then state.impulses[id] = nil end
 end
 
+local function remove_group(name: string)
+	local state = world:get(VelocityState, VelocityState) :: State
+
+	for index, impulse in state.impulses do
+		if impulse.group == name then state.impulses[index] = nil end
+	end
+	world:set(VelocityState, VelocityState, state)
+end
+
 local function velocity_compose(delta: number)
 	local now = os.clock()
 	local result = Vector3.zero
@@ -96,7 +105,7 @@ local function velocity_compose(delta: number)
 					impulse.direction.Z
 				).Unit
 
-				local max_turn_rate = impulse.max_turn_rate or 3
+				local max_turn_rate = impulse.max_turn_rate or 2
 				local angle =
 					math.acos(math.clamp(direction:Dot(input_direction), -1, 1))
 
@@ -152,4 +161,5 @@ return {
 	add_impulse = add_impulse,
 	update = update,
 	remove_impulse = remove_impulse,
+	remove_group = remove_group,
 }

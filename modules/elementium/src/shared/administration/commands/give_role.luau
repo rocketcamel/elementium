@@ -16,6 +16,11 @@ local function give_role()
 
 		callback = function(player, role)
 			local session = storage.get_session(player)
+			if not session then
+				error(
+					`player has no session, wait until they have fully loaded`
+				)
+			end
 
 			if not session.data.meta then
 				session.data.meta = {

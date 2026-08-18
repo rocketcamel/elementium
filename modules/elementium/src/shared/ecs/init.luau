@@ -32,16 +32,14 @@ export type Character = {
 
 export type Dash = {
 	id: number,
-	from: string,
 	velocity: number,
 	active: boolean,
 	lifetime: number,
 	lifecycle: number,
 	started: number,
-	n: number,
+	n: number?,
 	generation: number,
-	animation_slot: number,
-	-- ending: boolean?,
+	animation_slot: number?,
 }
 
 export type Slide = {
@@ -49,12 +47,11 @@ export type Slide = {
 	velocity: number,
 	direction: Vector3,
 	active: boolean,
-	started: number,
-	lifetime: number,
-	n: number,
+	started: number?,
+	lifetime: number?,
+	n: number?,
 	generation: number,
-	force_handle: LinearVelocity,
-	orient_handle: AlignOrientation,
+	orient_handle: AlignOrientation?,
 }
 
 export type CameraFOV = {
@@ -88,9 +85,14 @@ export type CharacterRef = {
 	invalidated: boolean,
 }
 
+export type Meta = {
+	permissions: { string },
+}
+
 local components = {
 	Player = world:component<<Player>>(),
 	Character = world:component<<Character>>(),
+	Session = world:component<<storage.Store>>(),
 	CharacterRef = world:component<<CharacterRef>>(),
 	Motion = world:component<<MotionRequest>>(),
 	AbilitySpawn = world:component<<AbilitySpawn>>(),
@@ -100,10 +102,13 @@ local components = {
 	Networked = world:component(),
 	CameraFOV = world:component(),
 	CharacterState = world:component<<CharacterState>>(),
+	Meta = world:component<<Meta>>(),
 }
 
 world:add(components.Character, components.Networked)
 world:add(components.Player, components.Networked)
+world:add(components.Meta, components.Networked)
+world:add(components.Session, components.Networked)
 
 for name, component in components :: any do
 	world:set(component, jecs.Name, name)
@@ -155,11 +160,14 @@ local function create()
 	} :: any)
 
 	jabby.set_check_function(function(player)
-		local session = storage.get_session(player)
+		local entity_id = if RunService:IsServer()
+			then player:GetAttribute "entity_id" :: number
+			else player:GetAttribute "client_entity_id" :: number
 
-		if session then
-			local permissions = session:get_player_permissions()
-			if permissions and table.find(permissions, "jabby") then
+		if entity_id then
+			local meta = world:get(entity_id, components.Meta)
+
+			if meta and table.find(meta.permissions, "jabby") then
 				return true
 			end
 		end

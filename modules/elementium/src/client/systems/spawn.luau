@@ -26,6 +26,7 @@ local function spawn()
 end
 
 return {
+	name = "spawn",
 	phase = "post_simulation",
 	system = spawn(),
 }

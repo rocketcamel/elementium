@@ -1,5 +1,3 @@
-local Players = game:GetService "Players"
-
 local ecs = require "../../shared/ecs"
 local jecs = require "../../roblox_packages/jecs"
 
@@ -18,10 +16,17 @@ function sliding(entity: jecs.Entity, spawn: ecs.AbilitySpawn)
 		root.AssemblyLinearVelocity.Z
 	).Unit
 
+	local assembly_magnitude = Vector3.new(
+		root.AssemblyLinearVelocity.X,
+		0,
+		root.AssemblyLinearVelocity.Z
+	).Magnitude
+
 	local slide = {
-		velocity = root.AssemblyLinearVelocity.Magnitude,
+		velocity = assembly_magnitude,
 		direction = direction,
 		generation = spawn.generation,
+		active = false,
 	}
 
 	print(entity, slide, target)
@@ -36,7 +41,6 @@ end
 
 function dashing(entity: jecs.Entity, spawn: ecs.AbilitySpawn)
 	local dash = {
-		from = Players.LocalPlayer.Name,
 		velocity = 120,
 		lifetime = 0.15,
 		lifecycle = 0.5,
