@@ -5,6 +5,20 @@ local types = require "../types"
 type Session<T> = storage.Session<T>
 type Store = storage.Store
 
+local function give_role_action(data: Store, role: string): Store
+	if not data.meta then
+		data.meta = {
+			permissions = { role },
+		}
+	else
+		if not table.find(data.meta.permissions, role) then
+			table.insert(data.meta.permissions, role)
+		end
+	end
+
+	return data
+end
+
 local function give_role()
 	conch.register("give_role", {
 		description = "gives a player the specified role",
@@ -22,17 +36,9 @@ local function give_role()
 				)
 			end
 
-			if not session.data.meta then
-				session.data.meta = {
-					permissions = { role },
-				}
-			else
-				if not table.find(session.data.meta.permissions, role) then
-					table.insert(session.data.meta.permissions, role)
+			session:patch(give_role_action, role)
 
-					return `gave role {role}`
-				end
-			end
+			return `gave role {role}`
 		end,
 	})
 end
