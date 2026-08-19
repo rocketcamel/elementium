@@ -29,8 +29,6 @@ function sliding(entity: jecs.Entity, spawn: ecs.AbilitySpawn)
 		active = false,
 	}
 
-	print(entity, slide, target)
-
 	jecs.bulk_insert(
 		world,
 		entity,
@@ -49,8 +47,6 @@ function dashing(entity: jecs.Entity, spawn: ecs.AbilitySpawn)
 	}
 
 	local target = spawn.target
-
-	print(entity, dash, target)
 
 	jecs.bulk_insert(
 		world,

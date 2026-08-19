@@ -98,8 +98,8 @@ world:set(components.Slide, jecs.OnRemove, function(entity, id)
 		group = "air",
 		direction = data.direction,
 		velocity = data.velocity * 0.80,
-		friction = 100,
-		threshold = 20,
+		friction = 150,
+		threshold = 25,
 		steerable = true,
 		lifetime = math.huge,
 	}
