@@ -6,3 +6,4 @@ github.github_attestations = false
 "github:pesde-pkg/pesde" = "0.7.3"
 "github:lune-org/lune" = "0.10.2"
 "github:johnnymorganz/stylua" = "2.5.2"
+"github:johnnymorganz/luau-lsp" = "1.69.0"
