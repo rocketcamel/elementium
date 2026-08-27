@@ -113,11 +113,20 @@ world:set(components.Wallrun, jecs.OnRemove, function(entity, id)
 	if not wallrun then return end
 
 	if target then
+		if wallrun.animation_slot then
+			local tracks = animation_tracks[target]
+			local node = tracks[wallrun.animation_slot]
+
+			if node then
+				node.track:Stop()
+				tracks[wallrun.animation_slot] = nil
+			end
+		end
+
 		target.Humanoid:SetStateEnabled(
 			Enum.HumanoidStateType.FallingDown,
 			true
 		)
-		target.Humanoid.AutoRotate = true
 	end
 
 	composer.remove_impulse(wallrun.id)
@@ -208,7 +217,7 @@ local function movement_wallrun(
 	orient.MaxTorque = 50000
 	orient.Mode = Enum.OrientationAlignmentMode.OneAttachment
 	orient.RigidityEnabled = true
-	orient.Enabled = false
+	-- orient.Enabled = false
 
 	wallrun.orient_handle = orient
 
@@ -218,7 +227,18 @@ local function movement_wallrun(
 	world:set(entity, components.Wallrun, wallrun)
 
 	target.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-	target.Humanoid.AutoRotate = false
+
+	local animation = Instance.new "Animation"
+	animation.AnimationId = "rbxassetid://118646674087775"
+
+	local track = target.Humanoid.Animator:LoadAnimation(animation)
+	track.Looped = true
+	track:Play()
+
+	if not animation_tracks[target] then animation_tracks[target] = {} end
+
+	animation_tracks[target][track_slot] =
+		{ animation = animation, track = track }
 end
 
 local function get_wall(
@@ -275,7 +295,7 @@ local function wallrun_get_vector(
 
 	if tangent:Dot(wallrun.vector) < 0 then tangent = -tangent end
 
-	local distance_error = wall.Distance - 2.25
+	local distance_error = wall.Distance - 1.5
 	local correction = -wall.Normal * math.clamp(distance_error * 10, -8, 8)
 
 	return tangent * wallrun.velocity + correction + Vector3.yAxis * -5, side
@@ -368,7 +388,7 @@ local function movement(delta: number)
 			local root = target.HumanoidRootPart
 			local wall, side = find_wall(target)
 
-			print(wall, side)
+			print(side)
 
 			if not wall or not side then
 				world:delete(entity)
@@ -430,13 +450,13 @@ local function movement(delta: number)
 			})
 		end
 
-		-- assert(wallrun.orient_handle)
-		-- local wallrun_vector = wallrun.vector :: Vector3
+		assert(wallrun.orient_handle)
+		local wallrun_vector = wallrun.vector :: Vector3
 
-		-- wallrun.orient_handle.CFrame = CFrame.lookAt(
-		-- 	Vector3.zero,
-		-- 	Vector3.new(wallrun_vector.X, 0, wallrun_vector.Z).Unit
-		-- )
+		wallrun.orient_handle.CFrame = CFrame.lookAt(
+			Vector3.zero,
+			Vector3.new(wallrun_vector.X, 0, wallrun_vector.Z).Unit
+		)
 	end
 end
 
