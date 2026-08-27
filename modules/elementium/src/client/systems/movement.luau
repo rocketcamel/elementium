@@ -107,6 +107,24 @@ world:set(components.Slide, jecs.OnRemove, function(entity, id)
 	if data.orient_handle then data.orient_handle:Destroy() end
 end)
 
+world:set(components.Wallrun, jecs.OnRemove, function(entity, id)
+	local wallrun = world:get(entity, components.Wallrun)
+	local target = world:get(entity, components.AbilityTarget)
+	if not wallrun then return end
+
+	if target then
+		target.Humanoid:SetStateEnabled(
+			Enum.HumanoidStateType.FallingDown,
+			true
+		)
+		target.Humanoid.AutoRotate = true
+	end
+
+	composer.remove_impulse(wallrun.id)
+
+	if wallrun.orient_handle then wallrun.orient_handle:Destroy() end
+end)
+
 local function movement_dash(
 	entity: jecs.Entity,
 	target: ecs.CharacterModel,
@@ -175,10 +193,100 @@ local function movement_slide(
 		{ animation = animation, track = track }
 end
 
+local WALLRUN_DISTANCE = 4
+local WALLRUN_MIN_SPEED = 20
+local WALLRUN_LOCK_SPEED = 15
+
+local function movement_wallrun(
+	entity: jecs.Entity,
+	target: ecs.CharacterModel,
+	wallrun: ecs.Wallrun
+)
+	local orient = Instance.new "AlignOrientation"
+	orient.Parent = target
+	orient.Attachment0 = target.HumanoidRootPart.RootAttachment
+	orient.MaxTorque = 50000
+	orient.Mode = Enum.OrientationAlignmentMode.OneAttachment
+	orient.RigidityEnabled = true
+	orient.Enabled = false
+
+	wallrun.orient_handle = orient
+
+	track_slot += 1
+	wallrun.animation_slot = track_slot
+
+	world:set(entity, components.Wallrun, wallrun)
+
+	target.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+	target.Humanoid.AutoRotate = false
+end
+
+local function get_wall(
+	target: ecs.CharacterModel,
+	side: "left" | "right"
+): RaycastResult
+	local root = target.HumanoidRootPart
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { target }
+
+	local direction = if side == "right"
+		then root.CFrame.RightVector
+		else -root.CFrame.RightVector
+
+	return workspace:Raycast(
+		root.Position,
+		direction * WALLRUN_DISTANCE,
+		params
+	) :: RaycastResult
+end
+
+local function find_wall(
+	target: ecs.CharacterModel
+): (RaycastResult?, "left" | "right"?)
+	local right = get_wall(target, "right")
+
+	if right and math.abs(right.Normal.Y) < 0.2 then return right, "right" end
+
+	local left = get_wall(target, "left")
+
+	if left and math.abs(left.Normal.Y) < 0.2 then return left, "left" end
+
+	return nil, nil
+end
+
+local function wallrun_get_vector(
+	entity: jecs.Entity,
+	target: ecs.CharacterModel,
+	wallrun: ecs.Wallrun
+): (Vector3?, ("left" | "right")?)
+	local wall, side = find_wall(target)
+
+	if not wall or math.abs(wall.Normal.Y) >= 0.2 then
+		world:delete(entity)
+		return nil, nil
+	end
+
+	local tangent = wall.Normal:Cross(Vector3.yAxis).Unit
+
+	assert(wallrun.vector)
+	assert(wallrun.velocity)
+
+	if tangent:Dot(wallrun.vector) < 0 then tangent = -tangent end
+
+	local distance_error = wall.Distance - 2.25
+	local correction = -wall.Normal * math.clamp(distance_error * 10, -8, 8)
+
+	return tangent * wallrun.velocity + correction + Vector3.yAxis * -5, side
+end
+
 local dash_query =
 	world:query(components.Dash, components.AbilityTarget):cached()
 local slide_query =
 	world:query(components.Slide, components.AbilityTarget):cached()
+local wallrun_query =
+	world:query(components.Wallrun, components.AbilityTarget):cached()
 
 local function movement(delta: number)
 	for entity, dash, target in dash_query do
@@ -251,6 +359,84 @@ local function movement(delta: number)
 		assert(slide.orient_handle)
 		slide.orient_handle.CFrame =
 			CFrame.lookAt(Vector3.zero, slide.direction)
+	end
+
+	for entity, wallrun, target in wallrun_query do
+		if not target then continue end
+
+		if not wallrun.active then
+			local root = target.HumanoidRootPart
+			local wall, side = find_wall(target)
+
+			print(wall, side)
+
+			if not wall or not side then
+				world:delete(entity)
+				return
+			end
+
+			local horizontal_velocity = Vector3.new(
+				root.AssemblyLinearVelocity.X,
+				0,
+				root.AssemblyLinearVelocity.Z
+			)
+
+			local speed =
+				math.max(horizontal_velocity.Magnitude, WALLRUN_MIN_SPEED)
+			local direction = wall.Normal:Cross(Vector3.yAxis).Unit
+
+			if direction:Dot(horizontal_velocity) < 0 then
+				direction = -direction
+			end
+
+			local vector_velocity = direction * speed
+				+ -wall.Normal * WALLRUN_LOCK_SPEED
+				+ Vector3.yAxis * 5
+
+			local id = composer.add_impulse {
+				group = "wallrun",
+				velocity = 0,
+				direction = Vector3.zero,
+				vector_velocity = vector_velocity,
+				lifetime = math.huge,
+				exclusive = true,
+			}
+
+			wallrun.active = true
+			wallrun.id = id
+			wallrun.vector = vector_velocity
+			wallrun.velocity = speed
+			wallrun.side = side
+
+			world:set(entity, components.Wallrun, wallrun)
+
+			movement_wallrun(entity, target, wallrun)
+		end
+
+		if target.Humanoid.FloorMaterial ~= Enum.Material.Air then
+			world:delete(entity)
+			continue
+		end
+
+		local vector_velocity, side =
+			wallrun_get_vector(entity, target, wallrun)
+
+		if vector_velocity and side then
+			wallrun.side = side
+			wallrun.vector = vector_velocity
+
+			composer.update(wallrun.id, {
+				vector_velocity = vector_velocity,
+			})
+		end
+
+		-- assert(wallrun.orient_handle)
+		-- local wallrun_vector = wallrun.vector :: Vector3
+
+		-- wallrun.orient_handle.CFrame = CFrame.lookAt(
+		-- 	Vector3.zero,
+		-- 	Vector3.new(wallrun_vector.X, 0, wallrun_vector.Z).Unit
+		-- )
 	end
 end
 

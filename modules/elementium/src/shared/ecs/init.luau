@@ -54,12 +54,22 @@ export type Slide = {
 	orient_handle: AlignOrientation?,
 }
 
+export type Wallrun = {
+	id: number,
+	active: boolean,
+	animation_slot: number?,
+	vector: Vector3?,
+	velocity: number?,
+	side: "left" | "right",
+	orient_handle: AlignOrientation?,
+}
+
 export type CameraFOV = {
 	fov: number,
 	kick: () -> (),
 }
 
-export type Motion = "none" | "running" | "dashing" | "sliding"
+export type Motion = "none" | "running" | "dashing" | "sliding" | "wallrunning"
 export type MotionRequestReason = "input_began" | "input_end" | "ability_end"
 
 export type MotionRequest = {
@@ -98,6 +108,7 @@ local components = {
 	AbilitySpawn = world:component<<AbilitySpawn>>(),
 	Dash = world:component<<Dash>>(),
 	Slide = world:component<<Slide>>(),
+	Wallrun = world:component<<Wallrun>>(),
 	AbilityTarget = world:component<<CharacterModel>>(),
 	Networked = world:component(),
 	CameraFOV = world:component(),

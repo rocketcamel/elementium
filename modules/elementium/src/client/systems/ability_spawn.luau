@@ -56,6 +56,21 @@ function dashing(entity: jecs.Entity, spawn: ecs.AbilitySpawn)
 	)
 end
 
+local function wallrun(entity: jecs.Entity, spawn: ecs.AbilitySpawn)
+	local wallrun = {
+		active = false,
+	}
+
+	local target = spawn.target
+
+	jecs.bulk_insert(
+		world,
+		entity,
+		{ components.Wallrun, components.AbilityTarget },
+		{ wallrun, target }
+	)
+end
+
 local function ability_spawn()
 	for entity, spawn in query do
 		local character_state = world:get(
@@ -74,6 +89,8 @@ local function ability_spawn()
 			dashing(ability, spawn)
 		elseif spawn.motion == "sliding" then
 			sliding(ability, spawn)
+		elseif spawn.motion == "wallrunning" then
+			wallrun(ability, spawn)
 		end
 
 		character_state.active_ability_id = ability

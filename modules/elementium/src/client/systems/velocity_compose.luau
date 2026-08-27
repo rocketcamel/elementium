@@ -6,7 +6,7 @@ local jecs = require "../../roblox_packages/jecs"
 local world = ecs.world
 
 export type Impulse = {
-	group: "dash" | "slide" | "air",
+	group: "dash" | "slide" | "wallrun" | "air",
 	direction: Vector3,
 	velocity: number,
 	friction: number?,
@@ -16,6 +16,9 @@ export type Impulse = {
 	steerable: boolean?,
 	max_turn_rate: number?,
 	control_window: number?,
+
+	exclusive: boolean?,
+	vector_velocity: Vector3?,
 }
 
 export type State = {
@@ -45,8 +48,8 @@ local function update(id: number, patch: unknown)
 	local state = world:get(VelocityState, VelocityState) :: State
 	local impulse = state.impulses[id]
 
-	if impulse and typeof(impulse) == "table" then
-		for k, value in patch :: any do
+	if impulse and typeof(patch) == "table" then
+		for k, value in patch do
 			(impulse :: any)[k] = value
 		end
 	end
@@ -119,7 +122,13 @@ local function velocity_compose(delta: number)
 			end
 
 			impulse.velocity = math.max(0, impulse.velocity - friction * delta)
-			result += impulse.direction * impulse.velocity
+
+			if impulse.exclusive then
+				assert(impulse.vector_velocity)
+				result = impulse.vector_velocity
+			else
+				result += impulse.direction * impulse.velocity
+			end
 			active += 1
 		end
 	end

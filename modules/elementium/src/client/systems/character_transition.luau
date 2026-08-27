@@ -6,10 +6,33 @@ local world = ecs.world
 local components = ecs.components
 
 local guards: { [ecs.Motion]: { [ecs.Motion]: boolean } } = {
-	none = { none = true, running = true, dashing = true, sliding = true },
-	running = { none = true, dashing = true, sliding = true },
-	dashing = { none = true, running = true, dashing = true, sliding = true },
-	sliding = { none = true, running = true },
+	none = {
+		none = true,
+		running = true,
+		dashing = true,
+		sliding = true,
+		wallrunning = true,
+	},
+	running = {
+		none = true,
+		dashing = true,
+		sliding = true,
+		wallrunning = true,
+	},
+	dashing = {
+		none = true,
+		running = true,
+		dashing = true,
+		sliding = true,
+		wallrunning = true,
+	},
+	sliding = { none = true, running = true, wallrunning = true },
+	wallrunning = {
+		none = true,
+		running = true,
+		dashing = true,
+		sliding = true,
+	},
 }
 
 local function resolve_character_state(target: ecs.CharacterModel): ecs.Motion
@@ -72,8 +95,12 @@ local function character_transitions()
 		if
 			current_state.motion == "dashing"
 			or current_state.motion == "sliding"
+			or current_state.motion == "wallrunning"
 		then
-			create_spawn(current_state.motion, current_state.generation)
+			create_spawn(
+				current_state.motion :: ecs.Motion,
+				current_state.generation
+			)
 		end
 	end
 end

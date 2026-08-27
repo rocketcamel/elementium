@@ -37,6 +37,16 @@ local function keys()
 			return Enum.ContextActionResult.Pass
 		end
 	end, false, Enum.KeyCode.LeftShift)
+
+	ContextActionService:BindAction("wallrun", function(_, state)
+		if state == Enum.UserInputState.Begin then
+			set_motion("wallrunning", "input_began")
+			return Enum.ContextActionResult.Pass
+		else
+			set_motion("none", "input_end")
+			return Enum.ContextActionResult.Pass
+		end
+	end, false, Enum.KeyCode.Space)
 end
 
 return {
