@@ -36,8 +36,8 @@ local function client()
 				world:set(entity_id, components.Character, {
 					health = 100,
 					max_health = 100,
-					walk_speed = 20,
-					jump_power = 50,
+					walk_speed = 0,
+					jump_power = 0,
 					instance = instance :: any,
 				})
 			end

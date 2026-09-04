@@ -8,7 +8,11 @@ export type Info = {
 	delta: number,
 }
 
-export type Phase = "startup" | "pre_simulation" | "post_simulation"
+export type Phase =
+	"startup"
+	| "pre_simulation"
+	| "movement"
+	| "post_simulation"
 
 export type SystemDeclaration = {
 	name: string?,
@@ -16,7 +20,8 @@ export type SystemDeclaration = {
 	phase: Phase,
 }
 
-local PHASE_ORDER: { Phase } = { "pre_simulation", "post_simulation" }
+local PHASE_ORDER: { Phase } =
+	{ "pre_simulation", "movement", "post_simulation" }
 
 local function scheduler()
 	local jabby_scheduler = jabby.scheduler.create()
@@ -25,6 +30,7 @@ local function scheduler()
 	local systems: { [Phase]: { Info } } = {
 		["startup"] = {},
 		["pre_simulation"] = {},
+		["movement"] = {},
 		["post_simulation"] = {},
 	}
 

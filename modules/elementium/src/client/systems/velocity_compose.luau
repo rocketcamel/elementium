@@ -150,7 +150,7 @@ local function velocity_compose(delta: number)
 	if should_force then
 		handle.Enabled = true
 
-		if math.abs(result.Y) > 0.5 then
+		if math.abs(result.Y) > 100 then
 			handle.MaxAxesForce = Vector3.new(50000, 50000, 50000)
 		else
 			handle.MaxAxesForce = Vector3.new(50000, 0, 50000)

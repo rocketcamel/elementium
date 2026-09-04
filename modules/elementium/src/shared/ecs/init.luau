@@ -60,6 +60,7 @@ export type Wallrun = {
 	animation_slot: number?,
 	vector: Vector3?,
 	velocity: number?,
+	vertical_velocity: number?,
 	side: "left" | "right",
 	orient_handle: AlignOrientation?,
 }
@@ -193,10 +194,18 @@ local function create()
 	end
 end
 
+local function create_component<T>(name: string): jecs.Entity<T>
+	local id = world:component<<T>>()
+	world:set(id, jecs.Name, name)
+
+	return id
+end
+
 return {
 	world = world,
 	components = components,
 	scheduler = ecs_scheduler,
+	create_component = create_component,
 
 	create = create,
 }

@@ -26,9 +26,9 @@ local function create()
 	visit(script.commands)
 
 	if RunService:IsServer() then
-		conch.set_role_permissions("administration", "handout")
+		conch.set_role_permissions("administration", "handout", "debug")
 	else
-		conch_ui.bind_to(Enum.KeyCode.Quote)
+		conch_ui.bind_to(Enum.KeyCode.F2)
 	end
 end
 

@@ -1,4 +1,4 @@
-local DataStoreService = game:GetService "DataStoreService"
+local task = require "../shared/task"
 
 local CURRENT_REVISION = 1
 local EXPONENT_BACKOFF = 2
@@ -29,13 +29,25 @@ export type Session<T> = {
 	data: T,
 	listener: (T) -> (),
 
+	_: {
+		locked: boolean,
+		attempt: number,
+	},
+
 	commit: (session: Session<T>) -> (),
 	updated: (session: Session<T>, fn: (T) -> ()) -> (),
 	patch: <U...>(session: Session<T>, (T, U...) -> T, U...) -> (),
+	lock: (session: Session<T>) -> (),
+	unlock: (session: Session<T>) -> (),
 	get_player_permissions: (session: Session<T>) -> { string }?,
 }
 
 local session_player_map = {}
+local DataStoreService = if game
+	then game:GetService "DataStoreService"
+	else nil
+
+local owner = if game then game.JobId else tostring(math.random(1, 100000))
 
 local function noop() end
 
@@ -82,16 +94,17 @@ end
 local function lock_taken<T>(store: StoredData<T>): boolean
 	return if store
 			and store.lock
-			and store.lock.owner == game.JobId
+			and store.lock.owner == owner
 		then true
 		else false
 end
 
-local function lock_store<T>(session: Session<T>)
+local function lock<T>(session: Session<T>)
 	local n = 0
 
 	local function attempt()
 		n += 1
+		session._.attempt = n
 
 		return session.store:UpdateAsync(
 			session.key,
@@ -104,7 +117,7 @@ local function lock_store<T>(session: Session<T>)
 				end
 
 				store.lock = {
-					owner = game.JobId,
+					owner = owner,
 					expires = os.time() + 5 * 60,
 				}
 
@@ -128,16 +141,19 @@ local function lock_store<T>(session: Session<T>)
 	end
 
 	session.data = store.data
+	session._.locked = true
 
 	print("updated store", store)
 end
 
-local function unlock_store<T>(session: Session<T>)
+local function unlock<T>(session: Session<T>)
 	session.store:UpdateAsync(session.key, function(store: StoredData<Store>)
-		if not store.lock or store.lock.owner ~= game.JobId then return end
+		if not store.lock or store.lock.owner ~= owner then return end
 
 		store.data = session.data
 		store.lock = nil
+
+		session._.locked = false
 		return store
 	end)
 end
@@ -180,7 +196,13 @@ local function get_player_permissions(session: Session<Store>): { string }?
 	return meta.permissions
 end
 
+local function wrap<T>(fn: (session: Session<T>) -> ())
+	return function(session: Session<T>) task.spawn(fn, session) end
+end
+
 local function initialize(player: Player): Session<Store>
+	assert(DataStoreService)
+
 	local key = `player_store#{player.User.Id}`
 	local store = DataStoreService:GetDataStore "player_storage"
 
@@ -190,14 +212,46 @@ local function initialize(player: Player): Session<Store>
 		data = { shards = 0 },
 		listener = noop,
 
+		_ = { locked = false, attempt = 0 },
+
 		commit = commit_store,
 		updated = updated,
 		patch = patch,
+		lock = lock,
+		unlock = unlock,
 		get_player_permissions = get_player_permissions,
 	}
 
-	lock_store(session)
+	session:lock()
 	session_player_map[player.User.Id] = session
+
+	return session
+end
+
+local function initialize_raw(id: number): Session<Store>
+	assert(DataStoreService)
+
+	local key = `player_store#{id}`
+	local store = DataStoreService:GetDataStore "player_storage"
+
+	local session: Session<Store> = {
+		key = key,
+		store = store,
+		data = { shards = 0 },
+		listener = noop,
+
+		_ = { locked = false, attempt = 0 },
+
+		commit = commit_store,
+		updated = updated,
+		patch = patch,
+		lock = noop,
+		unlock = noop,
+		get_player_permissions = get_player_permissions,
+	}
+
+	session.lock = wrap(lock)
+	session.unlock = wrap(unlock)
 
 	return session
 end
@@ -205,12 +259,16 @@ end
 local function cleanup(player: Player)
 	local session = session_player_map[player.User.Id]
 
-	if session then unlock_store(session :: any) end
+	if session then session:unlock() end
 end
 
 return {
 	initialize = initialize,
+	initialize_raw = initialize_raw,
 	cleanup = cleanup,
 
 	get_session = get_session,
+
+	mock = function(value) DataStoreService = value end,
+	owner = function(value) owner = value end,
 }
