@@ -30,65 +30,8 @@ export type Character = {
 	instance: CharacterModel,
 }
 
-export type Dash = {
-	id: number,
-	velocity: number,
-	active: boolean,
-	lifetime: number,
-	lifecycle: number,
-	started: number,
-	n: number?,
-	generation: number,
-	animation_slot: number?,
-}
-
-export type Slide = {
-	id: number,
-	velocity: number,
-	direction: Vector3,
-	active: boolean,
-	started: number?,
-	lifetime: number?,
-	n: number?,
-	generation: number,
-	orient_handle: AlignOrientation?,
-}
-
-export type Wallrun = {
-	id: number,
-	active: boolean,
-	animation_slot: number?,
-	vector: Vector3?,
-	velocity: number?,
-	vertical_velocity: number?,
-	side: "left" | "right",
-	orient_handle: AlignOrientation?,
-}
-
 export type CameraFOV = {
 	fov: number,
-	kick: () -> (),
-}
-
-export type Motion = "none" | "running" | "dashing" | "sliding" | "wallrunning"
-export type MotionRequestReason = "input_began" | "input_end" | "ability_end"
-
-export type MotionRequest = {
-	motion: Motion,
-	reason: MotionRequestReason,
-	id: number,
-}
-
-export type AbilitySpawn = {
-	motion: Motion,
-	target: CharacterModel,
-	generation: number,
-}
-
-export type CharacterState = {
-	motion: Motion,
-	active_ability_id: jecs.Entity?,
-	generation: number,
 }
 
 export type CharacterRef = {
@@ -100,16 +43,42 @@ export type Meta = {
 	permissions: { string },
 }
 
+--------------------------------------------------------------------------------
+-- movement
+--------------------------------------------------------------------------------
+
+export type AbilityKind = "dash" | "dash_endjump"
+
+export type Ability = {
+	previous: AbilityKind?,
+	current: (Dash | Dash_EndJump)?,
+}
+
+export type Dash = {
+	kind: "dash",
+	vector: Vector3,
+	lifetime: number,
+	linear_velocity: LinearVelocity?,
+}
+
+export type Dash_EndJump = {
+	kind: "dash_endjump",
+	vector: Vector3,
+	lifetime: number,
+	animation_track: AnimationTrack,
+	linear_velocity: LinearVelocity?,
+}
+
 local components = {
 	Player = world:component<<Player>>(),
 	Character = world:component<<Character>>(),
 	Session = world:component<<storage.Store>>(),
 	CharacterRef = world:component<<CharacterRef>>(),
 	Motion = world:component<<MotionRequest>>(),
-	AbilitySpawn = world:component<<AbilitySpawn>>(),
+
+	Ability = world:component<<Ability>>(),
 	Dash = world:component<<Dash>>(),
-	Slide = world:component<<Slide>>(),
-	Wallrun = world:component<<Wallrun>>(),
+
 	AbilityTarget = world:component<<CharacterModel>>(),
 	Networked = world:component(),
 	CameraFOV = world:component(),

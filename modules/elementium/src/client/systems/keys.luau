@@ -1,72 +1,86 @@
-local ContextActionService = game:GetService "ContextActionService"
-local Players = game:GetService "Players"
+local ReplicatedStorage = game:GetService "ReplicatedStorage"
 
-local ecs = require "../../shared/ecs"
-local jecs = require "../../roblox_packages/jecs"
-local wallrun = require "./movement/wallrun"
+local movement = require "./movement"
 
-local world = ecs.world
-local components = ecs.components
+export type Registry = {
+	folder: Folder,
+	play_context: InputContext,
 
-world:set(components.Motion, components.Motion, {
-	motion = "none" :: "none",
-	reason = "input_began" :: "input_began",
-	id = 0,
-})
-
-export type Input = {
-	dash: boolean,
-	slide: boolean,
+	register: (
+		self: Registry,
+		name: string,
+		type: Enum.InputActionType,
+		fn: (...unknown) -> (),
+		...Enum.KeyCode
+	) -> (),
 }
 
-local Input = ecs.create_component<<Input>> "Input"
+local function register(
+	registry: Registry,
+	name: string,
+	type: Enum.InputActionType,
+	fn: (...unknown) -> (),
+	...: Enum.KeyCode
+)
+	local action = Instance.new "InputAction"
+	action.Parent = registry.play_context
+	action.Name = name
+	action.Type = type
 
-world:set(Input, Input, {
-	dash = false,
-	slide = false,
-})
+	for _, key_code in { ... } do
+		local binding = Instance.new "InputBinding"
+		binding.Parent = action
+		binding.Name = "keyboard_bind"
+		binding.KeyCode = key_code
+	end
 
-local function set_motion(motion: ecs.Motion, reason: ecs.MotionRequestReason)
-	local request =
-		world:get(components.Motion, components.Motion) :: ecs.MotionRequest
-	request.motion = motion
-	request.reason = reason
-	request.id += 1
-
-	world:set(components.Motion, components.Motion, request)
+	action.StateChanged:Connect(function(...) fn(...) end)
 end
 
-local function keys()
-	ContextActionService:BindAction("dash", function(_, state)
-		if state ~= Enum.UserInputState.Begin then return nil end
-		return Enum.ContextActionResult.Pass
-	end, false, Enum.KeyCode.Q)
+local function create(): Registry
+	local folder = Instance.new "Folder"
+	folder.Parent = ReplicatedStorage
+	folder.Name = "inputs"
 
-	ContextActionService:BindAction("slide", function(_, state)
-		if state == Enum.UserInputState.Begin then
-			return Enum.ContextActionResult.Pass
-		else
-			return Enum.ContextActionResult.Pass
-		end
-	end, false, Enum.KeyCode.LeftShift)
+	local play_context = Instance.new "InputContext"
+	play_context.Name = "play_context"
+	play_context.Parent = folder
 
-	ContextActionService:BindAction("wallrun", function(_, state)
-		if
-			state == Enum.UserInputState.Begin
-			and wallrun.near_wall(
-				Players.LocalPlayer.Character :: ecs.CharacterModel
-			)
-		then
-			set_motion("wallrunning", "input_began")
-			return Enum.ContextActionResult.Pass
-		else
-			set_motion("none", "input_end")
-			return Enum.ContextActionResult.Pass
-		end
-	end, false, Enum.KeyCode.Space)
+	local registry: Registry = {
+		folder = folder,
+		play_context = play_context,
+		register = register,
+	}
+
+	return registry
 end
 
 return {
 	phase = "startup",
-	system = keys,
+	system = function()
+		local registry = create()
+
+		registry:register("dash", Enum.InputActionType.Bool, function(pressed)
+			assert(typeof(pressed) == "boolean")
+
+			if pressed then movement.dash(0.38) end
+		end, Enum.KeyCode.Q)
+
+		registry:register(
+			"dash_endjump",
+			Enum.InputActionType.Bool,
+			function(pressed)
+				assert(typeof(pressed) == "boolean")
+
+				if
+					pressed
+					and movement.current() == "dash"
+					and not movement.grounded()
+				then
+					movement.dash_endjump()
+				end
+			end,
+			Enum.KeyCode.Space
+		)
+	end,
 }
