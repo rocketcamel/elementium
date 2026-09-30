@@ -2,38 +2,14 @@ local Players = game:GetService "Players"
 local ecs = require "../../../ReplicatedStorage/shared/ecs"
 local jecs = require "../../../ReplicatedStorage/roblox_packages/jecs"
 local net = require "../../../ReplicatedStorage/shared/ecs/net"
+local util = require "../../../ReplicatedStorage/shared/util"
 
 local world = ecs.world
 local components = ecs.components
 
-type Signal<T...> = {
-	Connect: (
-		self: Signal<T...>,
-		callback: (T...) -> ()
-	) -> RBXScriptConnection,
-}
-
-local function collect<T...>(signal: Signal<T...>): (() -> T..., RBXScriptConnection)
-	local queue = {}
-	local n = 0
-
-	local connection = signal:Connect(function(...)
-		table.insert(queue, { ... })
-		n += 1
-	end)
-
-	return function(): any
-		if n == 0 then return end
-		n -= 1
-
-		local args: any = table.remove(queue, 1)
-		return unpack(args)
-	end,
-		connection
-end
+local storages: { [jecs.Entity]: { [jecs.Entity]: any } } = {}
 
 local function net_send()
-	local storages: { [jecs.Entity]: { [jecs.Entity]: any } } = {}
 	local networked_components = {}
 
 	for component in world:each(components.Networked) do
@@ -70,7 +46,7 @@ local function net_send()
 		)
 	end
 
-	local players_added = collect(Players.PlayerAdded :: any)
+	local players_added = util.collect(Players.PlayerAdded :: any)
 
 	return function()
 		local initial_snapshot = {}
