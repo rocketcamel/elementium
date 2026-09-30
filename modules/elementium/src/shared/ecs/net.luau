@@ -1,5 +1,7 @@
 local ReplicatedStorage = game:GetService "ReplicatedStorage"
 local RunService = game:GetService "RunService"
+
+local ecs = require "../ecs"
 local jecs = require "../../roblox_packages/jecs"
 
 local run_context: "server" | "client" = if RunService:IsServer()
@@ -15,6 +17,7 @@ end
 
 export type RemoteIndex = {
 	replicate_snapshot: RemoteEvent,
+	report_ability: RemoteEvent,
 }
 
 local remotes: RemoteIndex
@@ -62,6 +65,7 @@ function net.server.create()
 
 	local remote_index: RemoteIndex = {
 		replicate_snapshot = remote "replicate_snapshot",
+		report_ability = remote "report_ability",
 	}
 
 	remotes = remote_index
@@ -79,6 +83,7 @@ function net.client.create()
 
 	local remote_index: RemoteIndex = {
 		replicate_snapshot = remote "replicate_snapshot",
+		report_ability = remote "report_ability",
 	}
 
 	remotes = remote_index
@@ -92,11 +97,25 @@ function net.server.replicate_snapshot(player: Player, snapshot: unknown)
 	remotes.replicate_snapshot:FireClient(player, snapshot)
 end
 
+function net.server.on_ability_report(fn: (
+	player: Player,
+	ability: ecs.AbilityKind
+) -> ())
+	assert_run_context "server"
+	assert(net.server.initialized)
+
+	remotes.report_ability.OnServerEvent:Connect(fn)
+end
+
 function net.client.on_replicate_snapshot(fn: (snapshot: Snapshot) -> ())
 	assert_run_context "client"
 	assert(net.client.initialized)
 
 	remotes.replicate_snapshot.OnClientEvent:Connect(fn)
+end
+
+function net.client.report_ability(ability: ecs.AbilityKind)
+	remotes.report_ability:FireServer(ability)
 end
 
 return net

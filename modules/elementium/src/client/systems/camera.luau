@@ -1,3 +1,5 @@
+local TweenService = game:GetService "TweenService"
+
 local ecs = require "../../shared/ecs"
 
 local world = ecs.world
@@ -15,6 +17,7 @@ type CameraState = {
 	kicks: { Kick },
 	frequency: number,
 	damping: number,
+	exclusive: boolean,
 }
 
 local state: CameraState = {
@@ -23,7 +26,12 @@ local state: CameraState = {
 	kicks = {},
 	frequency = 9,
 	damping = 0.9,
+	exclusive = false,
 }
+
+local DEFAULT_FOV = 70
+
+local request_id = 0
 
 local function pulse_curve(t: number): number
 	if t <= 0 or t >= 1 then return 0 end
@@ -59,6 +67,54 @@ local function spring_step(
 	return next_x, next_v
 end
 
+local active: { Tween } = {}
+
+local function GET(): ecs.CameraFOV
+	return world:get(
+			components.CameraFOV,
+			components.CameraFOV
+		) :: ecs.CameraFOV
+end
+
+local function SET(data: ecs.CameraFOV)
+	world:set(components.CameraFOV, components.CameraFOV, data)
+end
+
+local function ID_CREATE(): number
+	request_id += 1
+	return request_id
+end
+
+local function create_tween(
+	camera: Camera,
+	info: TweenInfo,
+	properties: { [string]: unknown }
+)
+	local result = TweenService:Create(camera, info, properties)
+
+	table.insert(active, result)
+
+	result:Play()
+	return result
+end
+
+local function resolve_tweens()
+	for i, tween in active do
+		if tween.PlaybackState ~= Enum.PlaybackState.Playing then
+			table.remove(active, i)
+		end
+	end
+end
+
+local function clear_tweens()
+	resolve_tweens()
+
+	for _, tween in active do
+		tween:Pause()
+		tween:Destroy()
+	end
+end
+
 local function kick(amount: number?, duration: number?)
 	table.insert(state.kicks, {
 		started = os.clock(),
@@ -67,28 +123,55 @@ local function kick(amount: number?, duration: number?)
 	})
 end
 
-local function create(camera: Camera): ecs.CameraFOV
-	world:set(
-		components.CameraFOV,
-		components.CameraFOV,
-		{ fov = camera.FieldOfView, kick = kick }
+local function return_fov(id: number)
+	if id ~= request_id then return end
+	local camera = workspace.CurrentCamera
+	if not camera then return end
+
+	local result = create_tween(
+		camera,
+		TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+		{ FieldOfView = DEFAULT_FOV }
 	)
 
-	return world:get(
-			components.CameraFOV,
-			components.CameraFOV
-		) :: ecs.CameraFOV
+	result.Completed:Connect(function()
+		state.value = DEFAULT_FOV
+		state.exclusive = false
+	end)
+end
+
+local function set_fov(fov: number, duration: number?)
+	local camera = workspace.CurrentCamera
+	if not camera then return end
+	clear_tweens()
+
+	local result = create_tween(
+		camera,
+		TweenInfo.new(0.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),
+		{ FieldOfView = fov }
+	)
+	local id = ID_CREATE()
+
+	state.exclusive = true
+	state.value = fov
+
+	if duration then task.delay(duration, function() return_fov(id) end) end
+
+	result:Play()
+end
+
+local function create(camera: Camera): ecs.CameraFOV
+	SET { fov = camera.FieldOfView }
+	return GET()
 end
 
 local function camera(delta: number)
 	local camera = workspace.CurrentCamera
 	if not camera then return end
 
-	local data =
-		world:get(components.CameraFOV, components.CameraFOV) :: ecs.CameraFOV
+	local data = GET()
 
 	if not data then data = create(camera) end
-	assert(data)
 
 	local now = os.clock()
 	local target = 0
@@ -103,19 +186,29 @@ local function camera(delta: number)
 	end
 
 	state.kicks = active_kicks
-	state.value, state.velocity = spring_step(
-		state.value,
-		state.velocity,
-		target,
-		delta,
-		state.frequency,
-		state.damping
-	)
 
-	camera.FieldOfView = data.fov + state.value
+	if not state.exclusive then
+		-- state.value, state.velocity = spring_step(
+		-- 	state.value,
+		-- 	state.velocity,
+		-- 	target,
+		-- 	delta,
+		-- 	state.frequency,
+		-- 	state.damping
+		-- )
+
+		-- camera.FieldOfView = data.fov + state.value
+	end
 end
+
+local function wrap(fn: (id: number) -> ()) fn(ID_CREATE()) end
 
 return {
 	phase = "post_simulation",
 	system = camera,
+
+	kick = kick,
+	set_fov = set_fov,
+
+	return_fov = wrap(return_fov),
 }
