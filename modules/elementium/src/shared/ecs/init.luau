@@ -47,17 +47,18 @@ export type Meta = {
 -- movement
 --------------------------------------------------------------------------------
 
-export type AbilityKind = "dash" | "dash_endjump"
+export type AbilityKind = "dash" | "dash_endjump" | "double_jump"
 
 export type Ability = {
 	previous: AbilityKind?,
-	current: (Dash | Dash_EndJump)?,
+	current: (Dash | Dash_EndJump | DoubleJump)?,
 }
 
 export type Dash = {
 	kind: "dash",
 	vector: Vector3,
 	lifetime: number,
+	animation_track: AnimationTrack,
 	linear_velocity: LinearVelocity?,
 }
 
@@ -66,6 +67,13 @@ export type Dash_EndJump = {
 	vector: Vector3,
 	lifetime: number,
 	animation_track: AnimationTrack,
+	linear_velocity: LinearVelocity?,
+}
+
+export type DoubleJump = {
+	kind: "double_jump",
+	vector: Vector3,
+	lifetime: number,
 	linear_velocity: LinearVelocity?,
 }
 

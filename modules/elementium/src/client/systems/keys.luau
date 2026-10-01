@@ -78,6 +78,12 @@ return {
 					and not movement.grounded()
 				then
 					movement.dash_endjump()
+				elseif
+					pressed
+					and not movement.current()
+					and not movement.grounded()
+				then
+					movement.double_jump()
 				end
 			end,
 			Enum.KeyCode.Space

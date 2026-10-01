@@ -58,8 +58,11 @@ local function ABILITY_END(ability: ecs.Ability): ecs.AbilityKind?
 
 	if current.kind == "dash" then
 		if current.linear_velocity then current.linear_velocity:Destroy() end
+		current.animation_track:Stop()
 	elseif current.kind == "dash_endjump" then
 		current.animation_track:Stop()
+		if current.linear_velocity then current.linear_velocity:Destroy() end
+	elseif current.kind == "double_jump" then
 		if current.linear_velocity then current.linear_velocity:Destroy() end
 	end
 
@@ -75,6 +78,7 @@ local function ensure_linear_velocity(
 	assert(ability.current)
 
 	local linear_velocity = ability.current.linear_velocity :: LinearVelocity
+	local current = ability.current
 
 	if not linear_velocity then
 		linear_velocity = Instance.new "LinearVelocity"
@@ -82,10 +86,20 @@ local function ensure_linear_velocity(
 		linear_velocity.MaxForce = 50000
 		linear_velocity.Attachment0 = character.HumanoidRootPart.RootAttachment
 
+		if current.kind == "double_jump" then
+			linear_velocity.VelocityConstraintMode =
+				Enum.VelocityConstraintMode.Line
+			linear_velocity.LineDirection = Vector3.yAxis
+		end
+
 		ability.current.linear_velocity = linear_velocity
 	end
 
-	linear_velocity.VectorVelocity = ability.current.vector
+	if current.kind == "double_jump" then
+		linear_velocity.LineVelocity = ability.current.vector.Y
+	else
+		linear_velocity.VectorVelocity = ability.current.vector
+	end
 
 	return linear_velocity
 end
@@ -128,14 +142,22 @@ local function dash(lifetime: number)
 	local dash_vector = character.instance.HumanoidRootPart.CFrame.LookVector
 		* DASH_VELOCITY
 
+	local animation = Instance.new "Animation"
+	animation.AnimationId = "rbxassetid://127131740639392"
+
+	local track = character.instance.Humanoid.Animator:LoadAnimation(animation)
+
 	ability.current = {
 		kind = "dash" :: "dash",
 		vector = dash_vector,
+		animation_track = track,
 		lifetime = os.clock() + lifetime,
-	}
+		linear_velocity = nil,
+	} :: ecs.Dash
 
 	net.client.report_ability "dash"
 	camera.set_fov(80, lifetime)
+	track:Play()
 
 	SET(ability)
 end
@@ -158,7 +180,7 @@ local function dash_endjump()
 	local result = direction * DASH_VELOCITY
 
 	local animation = Instance.new "Animation"
-	animation.AnimationId = "rbxassetid://102073681794798"
+	animation.AnimationId = "rbxassetid://78316629769786"
 
 	local track = character.instance.Humanoid.Animator:LoadAnimation(animation)
 
@@ -177,6 +199,29 @@ local function dash_endjump()
 	SET(ability)
 end
 
+local JUMP_MAGNITUDE = 50
+
+local function double_jump()
+	local ability = GET()
+	local character = CHARACTER_GET()
+
+	if not character then return end
+	ABILITY_END(ability)
+
+	local result = Vector3.yAxis * JUMP_MAGNITUDE
+
+	ability.current = {
+		kind = "double_jump" :: "double_jump",
+		vector = result,
+		lifetime = os.clock() + 0.2,
+		linear_velocity = nil,
+	} :: ecs.DoubleJump
+
+	net.client.report_ability "double_jump"
+
+	SET(ability)
+end
+
 local function current_ability(): ecs.AbilityKind?
 	local ability = GET()
 	if ability.current then return ability.current.kind end
@@ -190,6 +235,7 @@ return {
 
 	dash = dash,
 	dash_endjump = dash_endjump,
+	double_jump = double_jump,
 
 	grounded = function(): boolean?
 		local character = CHARACTER_GET()
