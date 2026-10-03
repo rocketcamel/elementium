@@ -72,11 +72,7 @@ return {
 			function(pressed)
 				assert(typeof(pressed) == "boolean")
 
-				if
-					pressed
-					and movement.current() == "dash"
-					and not movement.grounded()
-				then
+				if pressed and movement.current() == "dash" then
 					movement.dash_endjump()
 				elseif
 					pressed

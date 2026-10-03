@@ -1,4 +1,5 @@
 local Players = game:GetService "Players"
+local hotbar = require "./hotbar"
 
 local function spawn()
 	local added = {}
@@ -17,10 +18,8 @@ local function spawn()
 	end
 
 	return function()
-		for player in iter :: any do
-			player.PlayerScripts.PlayerModule.CameraModule.MouseLockController.BoundKeys.Value =
-				"RightShift"
-			print "applied keybind"
+		for player in iter do
+			hotbar.create_abilities(player)
 		end
 	end
 end

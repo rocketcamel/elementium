@@ -8,16 +8,16 @@ local util = require "../../shared/util"
 local world = ecs.world
 local components = ecs.components
 
-world:set(components.Ability, components.Ability, {})
+world:set(components.Movement, components.Movement, {})
 
 local DASH_VELOCITY = 80
 
-local function GET(): ecs.Ability
-	return world:get(components.Ability, components.Ability) :: ecs.Ability
+local function GET(): ecs.Movement
+	return world:get(components.Movement, components.Movement) :: ecs.Movement
 end
 
-local function SET(data: ecs.Ability)
-	world:set(components.Ability, components.Ability, data)
+local function SET(data: ecs.Movement)
+	world:set(components.Movement, components.Movement, data)
 end
 
 local function CHARACTER_GET(): ecs.Character?
@@ -48,7 +48,7 @@ local function grounded(character: ecs.Character)
 	return result and result.Distance <= hip_height + 0.2
 end
 
-local function ABILITY_END(ability: ecs.Ability): ecs.AbilityKind?
+local function MOVEMENT_END(ability: ecs.Movement): ecs.MovementKind?
 	if not ability.current then return nil end
 
 	ability.previous = ability.current.kind
@@ -73,7 +73,7 @@ end
 
 local function ensure_linear_velocity(
 	character: ecs.CharacterModel,
-	ability: ecs.Ability
+	ability: ecs.Movement
 ): LinearVelocity
 	assert(ability.current)
 
@@ -110,44 +110,44 @@ local function get_dash_vector(character: ecs.CharacterModel): Vector3
 end
 
 local function movement()
-	local ability = GET()
+	local movement = GET()
 	local character = CHARACTER_GET()
 
 	if
-		not ability.current
+		not movement.current
 		or not (character and util.validate_character(character))
 	then
 		return
 	end
 
-	local current = ability.current
+	local current = movement.current
 
 	if current.kind == "dash" then
 		local dash_vector = get_dash_vector(character.instance)
 		current.vector = dash_vector
 	end
 
-	ensure_linear_velocity(character.instance, ability)
+	ensure_linear_velocity(character.instance, movement)
 
-	if (current.lifetime - os.clock()) <= 0 then ABILITY_END(ability) end
+	if (current.lifetime - os.clock()) <= 0 then MOVEMENT_END(movement) end
 end
 
 local function dash(lifetime: number)
-	local ability = GET()
+	local movement = GET()
 	local character = CHARACTER_GET()
 
 	if not character then return end
-	ABILITY_END(ability)
+	MOVEMENT_END(movement)
 
 	local dash_vector = character.instance.HumanoidRootPart.CFrame.LookVector
 		* DASH_VELOCITY
 
 	local animation = Instance.new "Animation"
-	animation.AnimationId = "rbxassetid://127131740639392"
+	animation.AnimationId = util.retrieve_animation "dash"
 
 	local track = character.instance.Humanoid.Animator:LoadAnimation(animation)
 
-	ability.current = {
+	movement.current = {
 		kind = "dash" :: "dash",
 		vector = dash_vector,
 		animation_track = track,
@@ -159,15 +159,15 @@ local function dash(lifetime: number)
 	camera.set_fov(80, lifetime)
 	track:Play()
 
-	SET(ability)
+	SET(movement)
 end
 
 local function dash_endjump()
-	local ability = GET()
+	local movement = GET()
 	local character = CHARACTER_GET()
 
 	if not character then return end
-	ABILITY_END(ability)
+	MOVEMENT_END(movement)
 
 	local look_vector = character.instance.HumanoidRootPart.CFrame.LookVector
 
@@ -180,11 +180,11 @@ local function dash_endjump()
 	local result = direction * DASH_VELOCITY
 
 	local animation = Instance.new "Animation"
-	animation.AnimationId = "rbxassetid://78316629769786"
+	animation.AnimationId = util.retrieve_animation "dash_endjump"
 
 	local track = character.instance.Humanoid.Animator:LoadAnimation(animation)
 
-	ability.current = {
+	movement.current = {
 		kind = "dash_endjump",
 		vector = result,
 		lifetime = os.clock() + 0.2,
@@ -196,21 +196,21 @@ local function dash_endjump()
 	camera.set_fov(75, 0.2)
 	track:Play()
 
-	SET(ability)
+	SET(movement)
 end
 
 local JUMP_MAGNITUDE = 50
 
 local function double_jump()
-	local ability = GET()
+	local movement = GET()
 	local character = CHARACTER_GET()
 
 	if not character then return end
-	ABILITY_END(ability)
+	MOVEMENT_END(movement)
 
 	local result = Vector3.yAxis * JUMP_MAGNITUDE
 
-	ability.current = {
+	movement.current = {
 		kind = "double_jump" :: "double_jump",
 		vector = result,
 		lifetime = os.clock() + 0.2,
@@ -219,12 +219,12 @@ local function double_jump()
 
 	net.client.report_ability "double_jump"
 
-	SET(ability)
+	SET(movement)
 end
 
-local function current_ability(): ecs.AbilityKind?
-	local ability = GET()
-	if ability.current then return ability.current.kind end
+local function current_movement(): ecs.MovementKind?
+	local movement = GET()
+	if movement.current then return movement.current.kind end
 
 	return nil
 end
@@ -246,5 +246,5 @@ return {
 		return grounded(character)
 	end,
 
-	current = current_ability,
+	current = current_movement,
 }

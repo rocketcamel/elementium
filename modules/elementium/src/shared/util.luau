@@ -1,11 +1,34 @@
-local ecs = require "./ecs"
+local ReplicatedStorage = game:GetService "ReplicatedStorage" :: Storage
+local RunService = game:GetService "RunService"
 
-type Signal<T...> = {
-	Connect: (
-		self: Signal<T...>,
-		callback: (T...) -> ()
-	) -> RBXScriptConnection,
+local ecs = require "./ecs"
+local jecs = require "../roblox_packages/jecs"
+
+export type Storage = ReplicatedStorage & {
+	animations: Folder & {
+		dash: StringValue,
+		dash_endjump: StringValue,
+	},
 }
+
+local function entity_id(player: Player): jecs.Entity
+	local entity_id = if RunService:IsServer()
+		then player:GetAttribute "entity_id" :: jecs.Entity?
+		else player:GetAttribute "client_entity_id" :: jecs.Entity?
+	assert(entity_id, "player has no entity id")
+
+	return entity_id
+end
+
+export type Animation = "dash" | "dash_endjump"
+
+local function retrieve_animation(name: Animation): string
+	local result =
+		ReplicatedStorage.animations:FindFirstChild(name) :: StringValue?
+	assert(result)
+
+	return `rbxassetid://{result.Value}`
+end
 
 local function validate_character(character: ecs.Character)
 	if
@@ -25,6 +48,13 @@ local function character_hip_height(character: ecs.CharacterModel): number
 
 	return base_height + size_y * 0.5
 end
+
+export type Signal<T...> = {
+	Connect: (
+		self: Signal<T...>,
+		callback: (T...) -> ()
+	) -> RBXScriptConnection,
+}
 
 local function collect<T...>(signal: Signal<T...>): (() -> T..., RBXScriptConnection)
 	local queue = {}
@@ -49,4 +79,6 @@ return {
 	collect = collect,
 	validate_character = validate_character,
 	character_hip_height = character_hip_height,
+	retrieve_animation = retrieve_animation,
+	entity_id = entity_id,
 }

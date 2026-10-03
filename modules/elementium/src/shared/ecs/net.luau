@@ -99,7 +99,7 @@ end
 
 function net.server.on_ability_report(fn: (
 	player: Player,
-	ability: ecs.AbilityKind
+	ability: ecs.MovementKind
 ) -> ())
 	assert_run_context "server"
 	assert(net.server.initialized)
@@ -114,7 +114,7 @@ function net.client.on_replicate_snapshot(fn: (snapshot: Snapshot) -> ())
 	remotes.replicate_snapshot.OnClientEvent:Connect(fn)
 end
 
-function net.client.report_ability(ability: ecs.AbilityKind)
+function net.client.report_ability(ability: ecs.MovementKind)
 	remotes.report_ability:FireServer(ability)
 end
 
