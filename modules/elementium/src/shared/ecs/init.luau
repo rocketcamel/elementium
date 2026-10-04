@@ -5,7 +5,7 @@ local jecs = require "../roblox_packages/jecs"
 local scheduler = require "../roblox_packages/scheduler"
 local storage = require "./storage"
 
-local world = jecs.world(true)
+local world = jecs.world()
 
 export type CharacterModel = Model & {
 	Head: BasePart,
@@ -43,10 +43,6 @@ export type Meta = {
 	permissions: { string },
 }
 
-export type Cooldown = {
-	finish: number,
-}
-
 --------------------------------------------------------------------------------
 -- movement
 --------------------------------------------------------------------------------
@@ -56,6 +52,7 @@ export type MovementKind = "dash" | "dash_endjump" | "double_jump"
 export type Movement = {
 	previous: MovementKind?,
 	current: (Dash | Dash_EndJump | DoubleJump)?,
+	air_jump: number,
 }
 
 export type Dash = {
@@ -85,10 +82,6 @@ export type DoubleJump = {
 -- abilities
 --------------------------------------------------------------------------------
 
-export type Activation = {
-	started: number,
-}
-
 export type Projectile = {
 	vector: Vector3,
 	instance: BasePart?,
@@ -101,12 +94,10 @@ local components = {
 	CharacterRef = world:component<<CharacterRef>>(),
 	Motion = world:component<<MotionRequest>>(),
 
-	Cooldown = world:component<<Cooldown>>(),
 	Movement = world:component<<Movement>>(),
 	Dash = world:component<<Dash>>(),
 
 	Ability = world:component<<Ability>>(),
-	Activation = world:component<<Activation>>(),
 	Projectile = world:component<<Projectile>>(),
 
 	AbilityTarget = world:component<<CharacterModel>>(),

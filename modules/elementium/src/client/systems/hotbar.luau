@@ -11,7 +11,7 @@ local pair = jecs.pair
 type AbilityKind = types.AbilityKind
 type Ability = types.Ability
 
-local ability_map = {}
+local ability_kind_map = {}
 
 local function cooldown(duration: number): number return os.clock() + duration end
 
@@ -30,7 +30,7 @@ end
 
 local function deactivate(ability: Ability)
 	local definition = abilities[ability.kind]
-	if ability.cooldown then return end
+	if ability.cooldown or not ability.charge then return end
 
 	if definition.trigger ~= "release" then return end
 
@@ -42,7 +42,7 @@ local function deactivate(ability: Ability)
 end
 
 local function grant(kind: AbilityKind, container: Instance, name: string)
-	if ability_map[kind] then return end
+	if ability_kind_map[kind] then return end
 
 	local ability: Ability = {
 		kind = kind,
@@ -62,10 +62,10 @@ local function grant(kind: AbilityKind, container: Instance, name: string)
 
 	ability.binding = instance
 
-	ability_map[kind] = ability
+	ability_kind_map[kind] = ability
 end
 
-local function revoke(kind: AbilityKind) ability_map[kind] = nil end
+local function revoke(kind: AbilityKind) ability_kind_map[kind] = nil end
 
 local function reconcile_cooldown(ability: Ability)
 	if not ability.binding then return end
@@ -85,7 +85,7 @@ local function reconcile_cooldown(ability: Ability)
 end
 
 local function hotbar()
-	for kind, ability in ability_map do
+	for kind, ability in ability_kind_map do
 		reconcile_cooldown(ability)
 	end
 end

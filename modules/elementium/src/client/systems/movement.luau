@@ -8,7 +8,7 @@ local util = require "../../shared/util"
 local world = ecs.world
 local components = ecs.components
 
-world:set(components.Movement, components.Movement, {})
+world:set(components.Movement, components.Movement, { air_jump = 1 })
 
 local DASH_VELOCITY = 80
 
@@ -113,12 +113,9 @@ local function movement()
 	local movement = GET()
 	local character = CHARACTER_GET()
 
-	if
-		not movement.current
-		or not (character and util.validate_character(character))
-	then
-		return
-	end
+	if not (character and util.validate_character(character)) then return end
+	if grounded(character) then movement.air_jump = 1 end
+	if not movement.current then return end
 
 	local current = movement.current
 
@@ -205,7 +202,7 @@ local function double_jump()
 	local movement = GET()
 	local character = CHARACTER_GET()
 
-	if not character then return end
+	if not character or movement.air_jump == 0 then return end
 	MOVEMENT_END(movement)
 
 	local result = Vector3.yAxis * JUMP_MAGNITUDE
@@ -218,6 +215,7 @@ local function double_jump()
 	} :: ecs.DoubleJump
 
 	net.client.report_ability "double_jump"
+	movement.air_jump -= 1
 
 	SET(movement)
 end

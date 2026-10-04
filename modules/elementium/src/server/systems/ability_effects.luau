@@ -34,7 +34,7 @@ local function dash(player: Player)
 	if not character or not util.validate_character(character) then return end
 	play_sound(
 		character.instance.HumanoidRootPart,
-		"rbxassetid://136934236721060"
+		"rbxassetid://116541827502640"
 	)
 end
 local function dash_endjump(player: Player)

@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService "ReplicatedStorage"
 
+local ecs = require "../../shared/ecs"
 local movement = require "./movement"
 
 export type Registry = {
@@ -14,6 +15,8 @@ export type Registry = {
 		...Enum.KeyCode
 	) -> (),
 }
+
+local movement_cooldown_map = {}
 
 local function register(
 	registry: Registry,
@@ -55,6 +58,21 @@ local function create(): Registry
 	return registry
 end
 
+local function apply_cooldown(kind: ecs.MovementKind, duration: number)
+	movement_cooldown_map[kind] = os.clock() + duration
+end
+
+local function cooldown(kind: ecs.MovementKind)
+	local result = movement_cooldown_map[kind]
+
+	if result then
+		local remaining = result - os.clock()
+		return remaining >= 0
+	end
+
+	return false
+end
+
 return {
 	phase = "startup",
 	system = function()
@@ -63,7 +81,10 @@ return {
 		registry:register("dash", Enum.InputActionType.Bool, function(pressed)
 			assert(typeof(pressed) == "boolean")
 
-			if pressed then movement.dash(0.38) end
+			if pressed and not cooldown "dash" then
+				movement.dash(0.38)
+				apply_cooldown("dash", 2)
+			end
 		end, Enum.KeyCode.Q)
 
 		registry:register(
