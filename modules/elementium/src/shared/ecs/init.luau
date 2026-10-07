@@ -103,9 +103,19 @@ export type ProjectileDefinition = "firey_blow"
 export type SimpleProjectile = {
 	kind: "simple",
 	definition: ProjectileDefinition,
+
+	origin: CFrame,
+	initial_velocity: Vector3,
+	acceleration: Vector3,
+	spawn_time: number,
 }
 
-export type Projectile = SimpleProjectile
+export type InterpolatedProjectile = {
+	kind: "interpolated",
+	definition: ProjectileDefinition,
+}
+
+export type Projectile = SimpleProjectile | InterpolatedProjectile
 
 local components = {
 	Player = world:component<<Player>>(),

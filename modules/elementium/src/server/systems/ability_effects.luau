@@ -60,19 +60,20 @@ local function ability_effects()
 			* Vector3.new(0, 0, -3)
 		local direction = (target - position).Unit
 		local cframe = CFrame.new(position, position + direction)
+		local now = workspace:GetServerTimeNow()
 
 		jecs.bulk_insert(world, entity, {
 			components.Projectile,
-			components.ReplicatedPosition,
 			components.Velocity,
 		}, {
 			{
 				kind = "simple" :: "simple",
 				definition = "firey_blow" :: "firey_blow",
-			},
-			{
-				cframe = cframe,
-				server_time = workspace:GetServerTimeNow(),
+
+				origin = cframe,
+				initial_velocity = direction * 80,
+				acceleration = Vector3.zero,
+				spawn_time = now,
 			},
 			direction * 80,
 		})

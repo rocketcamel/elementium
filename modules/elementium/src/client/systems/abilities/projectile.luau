@@ -15,18 +15,10 @@ local components = ecs.components
 
 local setup = world:entity()
 
-local setup_query = world
-	:query(components.Projectile, components.ReplicatedPosition)
-	:without(setup)
-	:cached()
+local setup_query = world:query(components.Projectile):without(setup):cached()
 local query = world
-	:query(
-		components.Projectile,
-		components.ReplicatedPosition,
-		components.Snapshots,
-		components.Transform
-	)
-	:with(components.Renderable)
+	:query(components.Projectile)
+	:with(components.Renderable, components.Transform)
 	:cached()
 
 local function create_projectile(
@@ -63,12 +55,29 @@ util.observer(world:query(components.ReplicatedPosition), function(entity)
 	if #snapshots > 30 then table.remove(snapshots, 1) end
 end)
 
-local function interpolate_entity(
-	entity: jecs.Entity,
-	render_time: number,
-	a: ecs.PositionSnapshot,
-	b: ecs.PositionSnapshot
+local function evaluate_simple(
+	projectile: ecs.SimpleProjectile,
+	render_time: number
 ): CFrame
+	local age = math.max(0, render_time - projectile.spawn_time)
+
+	local displacement = projectile.initial_velocity * age
+		+ 0.5 * projectile.acceleration * age * age
+
+	return projectile.origin + displacement
+end
+
+local function evaluate_interpolated(
+	snapshots: { ecs.PositionSnapshot },
+	render_time: number
+): CFrame
+	while #snapshots >= 2 and snapshots[2].server_time <= render_time do
+		table.remove(snapshots, 1)
+	end
+
+	local a = snapshots[1]
+	local b = snapshots[2]
+
 	if render_time <= a.server_time or not b then return a.cframe end
 
 	local alpha = (render_time - a.server_time)
@@ -78,34 +87,45 @@ local function interpolate_entity(
 end
 
 local function projectile(delta: number)
-	for entity, projectile, replicated_position in setup_query do
+	for entity, projectile in setup_query do
 		local instance = create_projectile(projectile.definition)
 		instance.Parent = workspace
+
+		local result
+		local now = workspace:GetServerTimeNow()
+
+		if projectile.kind == "simple" then
+			result = evaluate_simple(projectile, now)
+		elseif projectile.kind == "interpolated" then
+			local replicated_position =
+				world:get(entity, components.ReplicatedPosition)
+			if not replicated_position then continue end
+
+			result = replicated_position.cframe
+		end
 
 		jecs.bulk_insert(world, entity, {
 			components.Renderable,
 			components.Transform,
 			setup,
-		}, { instance, replicated_position.cframe })
+		}, { instance, result })
 	end
 
-	for entity, projectile, replicated_position, snapshots, transform in query do
-		if projectile.kind ~= "simple" or #snapshots == 0 then continue end
+	for entity, projectile in query do
+		local result
+		local now = workspace:GetServerTimeNow()
 
-		local render_time = workspace:GetServerTimeNow() - 0.1
+		if projectile.kind == "simple" then
+			result = evaluate_simple(projectile, now)
+		elseif projectile.kind == "interpolated" then
+			local snapshots = world:get(entity, components.Snapshots)
 
-		while #snapshots >= 2 and snapshots[2].server_time <= render_time do
-			table.remove(snapshots, 1)
+			if snapshots then
+				result = evaluate_interpolated(snapshots, now - 0.1)
+			end
 		end
 
-		local a = snapshots[1]
-		local b = snapshots[2]
-
-		if render_time <= a.server_time or not b then continue end
-
-		local result = interpolate_entity(entity, render_time, a, b)
-
-		world:set(entity, components.Transform, result)
+		if result then world:set(entity, components.Transform, result) end
 	end
 end
 
