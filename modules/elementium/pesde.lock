@@ -18,6 +18,19 @@ path = "modules/scheduler"
 [graph."rocketcamel/elementium_scheduler@0.1.0 roblox".pkg_ref.dependencies]
 jabby = [{ repo = "https://github.com/alicesaidhi/jabby", rev = "436e482" }, "standard"]
 
+[graph."rocketcamel/elementium_util@0.1.0 roblox"]
+direct = ["util", { workspace = "rocketcamel/elementium_util", version = "^" }, "standard"]
+
+[graph."rocketcamel/elementium_util@0.1.0 roblox".dependencies]
+jecs = ["wally#ukendio/jecs@0.0.0-c69568da6e0e3d9ffa7eec8c0ab4fe0d34f02178 roblox", "standard"]
+
+[graph."rocketcamel/elementium_util@0.1.0 roblox".pkg_ref]
+ref_ty = "workspace"
+path = "modules/util"
+
+[graph."rocketcamel/elementium_util@0.1.0 roblox".pkg_ref.dependencies]
+jecs = [{ repo = "https://github.com/ukendio/jecs", rev = "v0.11.0" }, "standard"]
+
 [graph."wally#alicesaidhi/conch@0.4.0 roblox"]
 direct = ["conch", { wally = "wally#alicesaidhi/conch", version = "^0.4.0", index = "default" }, "standard"]
 

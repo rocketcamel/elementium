@@ -11,6 +11,9 @@ roblox = "modules/elementium"
 [workspace."rocketcamel/elementium_scheduler"]
 roblox = "modules/scheduler"
 
+[workspace."rocketcamel/elementium_util"]
+roblox = "modules/util"
+
 [graph."0x5eal/unzip@0.2.1 luau".pkg_ref]
 ref_ty = "pesde"
 index_url = "https://github.com/pesde-pkg/index"

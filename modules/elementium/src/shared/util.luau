@@ -4,6 +4,9 @@ local RunService = game:GetService "RunService"
 local ecs = require "./ecs"
 local jecs = require "../roblox_packages/jecs"
 
+local world = ecs.world
+local components = ecs.components
+
 export type Storage = ReplicatedStorage & {
 	animations: Folder & {
 		dash: StringValue,
@@ -20,7 +23,7 @@ local function entity_id(player: Player): jecs.Entity
 	return entity_id
 end
 
-export type Animation = "dash" | "dash_endjump"
+export type Animation = "dash" | "dash_endjump" | "double_jump"
 
 local function retrieve_animation(name: Animation): string
 	local result =
@@ -30,9 +33,22 @@ local function retrieve_animation(name: Animation): string
 	return `rbxassetid://{result.Value}`
 end
 
-local function validate_character(character: ecs.Character)
+local function get_character(player: Player): ecs.Character?
+	local entity_id = if RunService:IsServer()
+		then player:GetAttribute "entity_id" :: jecs.Entity
+		else player:GetAttribute "client_entity_id" :: jecs.Entity
+	if not entity_id then return nil end
+
+	local character = world:get(entity_id, components.Character)
+	if not character then return nil end
+
+	return character
+end
+
+local function validate_character(character: ecs.Character?)
 	if
-		character.instance.Parent
+		character
+		and character.instance.Parent
 		and character.instance:FindFirstChild "Humanoid"
 	then
 		return true
@@ -77,6 +93,7 @@ end
 
 return {
 	collect = collect,
+	get_character = get_character,
 	validate_character = validate_character,
 	character_hip_height = character_hip_height,
 	retrieve_animation = retrieve_animation,

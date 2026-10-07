@@ -1,0 +1,14 @@
+name = "rocketcamel/elementium_util"
+version = "0.1.0"
+includes = ["src/**", "pesde.toml"]
+
+[target]
+environment = "roblox"
+lib = "src/lib.luau"
+build_files = ["src"]
+
+[indices]
+default = "https://github.com/pesde-pkg/index"
+
+[dependencies]
+jecs = { repo = "ukendio/jecs", rev = "v0.11.0" }

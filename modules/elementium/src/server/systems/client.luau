@@ -60,6 +60,15 @@ local function client()
 			function(data) world:set(entity, components.Session, data) end
 		)
 
+		session:patch(function(data)
+			print(data)
+			data.meta = {
+				permissions = { "administration", "jabby" },
+			}
+
+			return data
+		end)
+
 		if permissions then
 			local user = conch.get_user(player)
 			conch.give_roles(user, unpack(permissions))

@@ -82,10 +82,30 @@ export type DoubleJump = {
 -- abilities
 --------------------------------------------------------------------------------
 
-export type Projectile = {
-	vector: Vector3,
-	instance: BasePart?,
+export type AbilityKind = "firey_blow"
+
+export type Hotbar = {
+	kind: AbilityKind,
+	name: string,
+	cooldown: number?,
+	cooldown_duration: number,
+	charge: number?,
+	binding: Tool?,
 }
+
+export type PositionSnapshot = {
+	cframe: CFrame,
+	server_time: number,
+}
+
+export type ProjectileDefinition = "firey_blow"
+
+export type SimpleProjectile = {
+	kind: "simple",
+	definition: ProjectileDefinition,
+}
+
+export type Projectile = SimpleProjectile
 
 local components = {
 	Player = world:component<<Player>>(),
@@ -96,8 +116,14 @@ local components = {
 
 	Movement = world:component<<Movement>>(),
 	Dash = world:component<<Dash>>(),
+	Hotbar = world:component<<Hotbar>>(),
 
 	Ability = world:component<<Ability>>(),
+	ReplicatedPosition = world:component<<PositionSnapshot>>(),
+	Snapshots = world:component<<{ PositionSnapshot }>>(),
+	Transform = world:component<<CFrame>>(),
+	Velocity = world:component<<Vector3>>(),
+	Renderable = world:component<<PVInstance>>(),
 	Projectile = world:component<<Projectile>>(),
 
 	AbilityTarget = world:component<<CharacterModel>>(),
@@ -111,6 +137,9 @@ world:add(components.Character, components.Networked)
 world:add(components.Player, components.Networked)
 world:add(components.Meta, components.Networked)
 world:add(components.Session, components.Networked)
+world:add(components.ReplicatedPosition, components.Networked)
+world:add(components.Velocity, components.Networked)
+world:add(components.Projectile, components.Networked)
 
 for name, component in components :: any do
 	world:set(component, jecs.Name, name)

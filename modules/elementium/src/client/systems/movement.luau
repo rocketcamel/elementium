@@ -152,7 +152,7 @@ local function dash(lifetime: number)
 		linear_velocity = nil,
 	} :: ecs.Dash
 
-	net.client.report_ability "dash"
+	net.client.report_movement "dash"
 	camera.set_fov(80, lifetime)
 	track:Play()
 
@@ -189,7 +189,7 @@ local function dash_endjump()
 		linear_velocity = nil,
 	} :: ecs.Dash_EndJump
 
-	net.client.report_ability "dash_endjump"
+	net.client.report_movement "dash_endjump"
 	camera.set_fov(75, 0.2)
 	track:Play()
 
@@ -207,6 +207,11 @@ local function double_jump()
 
 	local result = Vector3.yAxis * JUMP_MAGNITUDE
 
+	local animation = Instance.new "Animation"
+	animation.AnimationId = util.retrieve_animation "double_jump"
+
+	local track = character.instance.Humanoid.Animator:LoadAnimation(animation)
+
 	movement.current = {
 		kind = "double_jump" :: "double_jump",
 		vector = result,
@@ -214,8 +219,9 @@ local function double_jump()
 		linear_velocity = nil,
 	} :: ecs.DoubleJump
 
-	net.client.report_ability "double_jump"
+	net.client.report_movement "double_jump"
 	movement.air_jump -= 1
+	track:Play()
 
 	SET(movement)
 end

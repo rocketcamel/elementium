@@ -1,6 +1,5 @@
-local Players = game:GetService "Players"
-
 local ecs = require "../../../ReplicatedStorage/shared/ecs"
+local jecs = require "../../../ReplicatedStorage/roblox_packages/jecs"
 local net = require "../../../ReplicatedStorage/shared/ecs/net"
 local util = require "../../../ReplicatedStorage/shared/util"
 
@@ -44,12 +43,39 @@ local function dash_endjump(player: Player)
 end
 
 local function ability_effects()
-	net.server.on_ability_report(function(player, ability)
-		if ability == "dash" then
+	net.server.on_movement_report(function(player, movement)
+		if movement == "dash" then
 			dash(player)
-		elseif ability == "dash_endjump" then
+		elseif movement == "dash_endjump" then
 			dash_endjump(player)
 		end
+	end)
+
+	net.server.on_ability_report(function(player, kind, target)
+		local entity = world:entity()
+		local character = player.Character :: ecs.CharacterModel
+		assert(character)
+
+		local position = character.HumanoidRootPart.CFrame
+			* Vector3.new(0, 0, -3)
+		local direction = (target - position).Unit
+		local cframe = CFrame.new(position, position + direction)
+
+		jecs.bulk_insert(world, entity, {
+			components.Projectile,
+			components.ReplicatedPosition,
+			components.Velocity,
+		}, {
+			{
+				kind = "simple" :: "simple",
+				definition = "firey_blow" :: "firey_blow",
+			},
+			{
+				cframe = cframe,
+				server_time = workspace:GetServerTimeNow(),
+			},
+			direction * 80,
+		})
 	end)
 end
 

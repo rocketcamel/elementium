@@ -17,8 +17,18 @@ end
 
 export type RemoteIndex = {
 	replicate_snapshot: RemoteEvent,
+	report_movement: RemoteEvent,
 	report_ability: RemoteEvent,
 }
+
+export type ReportAbilityReplyPacket =
+	{
+		status: "ok",
+		kind: ecs.AbilityKind,
+	}
+	| {
+		status: "err",
+	}
 
 local remotes: RemoteIndex
 
@@ -65,6 +75,7 @@ function net.server.create()
 
 	local remote_index: RemoteIndex = {
 		replicate_snapshot = remote "replicate_snapshot",
+		report_movement = remote "report_movement",
 		report_ability = remote "report_ability",
 	}
 
@@ -83,6 +94,7 @@ function net.client.create()
 
 	local remote_index: RemoteIndex = {
 		replicate_snapshot = remote "replicate_snapshot",
+		report_movement = remote "report_movement",
 		report_ability = remote "report_ability",
 	}
 
@@ -97,14 +109,56 @@ function net.server.replicate_snapshot(player: Player, snapshot: unknown)
 	remotes.replicate_snapshot:FireClient(player, snapshot)
 end
 
-function net.server.on_ability_report(fn: (
+function net.server.on_movement_report(fn: (
 	player: Player,
 	ability: ecs.MovementKind
 ) -> ())
 	assert_run_context "server"
 	assert(net.server.initialized)
 
+	remotes.report_movement.OnServerEvent:Connect(fn)
+end
+
+function net.server.on_ability_report(fn: (
+	player: Player,
+	kind: ecs.AbilityKind,
+	target: Vector3
+) -> ())
+	assert_run_context "server"
+	assert(net.server.initialized)
+
 	remotes.report_ability.OnServerEvent:Connect(fn)
+end
+
+function net.server.report_successful_ability(
+	player: Player,
+	kind: ecs.AbilityKind
+)
+	assert_run_context "server"
+	assert(net.server.initialized)
+
+	local packet: ReportAbilityReplyPacket = {
+		status = "ok",
+		kind = kind,
+	}
+
+	remotes.report_ability:FireClient(player, packet)
+end
+
+function net.client.on_ability_report_reply(fn: (
+	info: ReportAbilityReplyPacket
+) -> ())
+	assert_run_context "client"
+	assert(net.client.initialized)
+
+	remotes.report_ability.OnClientEvent:Connect(fn)
+end
+
+function net.client.report_ability(kind: ecs.AbilityKind, direction: Vector3)
+	assert_run_context "client"
+	assert(net.client.initialized)
+
+	remotes.report_ability:FireServer(kind, direction)
 end
 
 function net.client.on_replicate_snapshot(fn: (snapshot: Snapshot) -> ())
@@ -114,8 +168,11 @@ function net.client.on_replicate_snapshot(fn: (snapshot: Snapshot) -> ())
 	remotes.replicate_snapshot.OnClientEvent:Connect(fn)
 end
 
-function net.client.report_ability(ability: ecs.MovementKind)
-	remotes.report_ability:FireServer(ability)
+function net.client.report_movement(ability: ecs.MovementKind)
+	assert_run_context "client"
+	assert(net.client.initialized)
+
+	remotes.report_movement:FireServer(ability)
 end
 
 return net
