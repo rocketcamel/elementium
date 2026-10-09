@@ -1,5 +1,7 @@
 local ReplicatedStorage = game:GetService "ReplicatedStorage" :: Storage
+local Workspace = game:GetService "Workspace" :: WorkspaceStorage
 
+local abilities = require "../../../shared/abilities"
 local ecs = require "../../../shared/ecs"
 local jecs = require "../../../roblox_packages/jecs"
 local util = require "../../../roblox_packages/util"
@@ -10,6 +12,10 @@ type Storage = ReplicatedStorage & {
 	},
 }
 
+type WorkspaceStorage = Workspace & {
+	projectiles: Folder,
+}
+
 local world = ecs.world
 local components = ecs.components
 
@@ -17,9 +23,18 @@ local setup = world:entity()
 
 local setup_query = world:query(components.Projectile):without(setup):cached()
 local query = world
-	:query(components.Projectile)
-	:with(components.Renderable, components.Transform)
+	:query(components.Projectile, components.Renderable)
+	:with(components.Transform)
 	:cached()
+
+world:set(components.Projectile, jecs.OnRemove, function(entity, id)
+	local projectile = world:get(entity, components.Projectile)
+	local renderable = world:get(entity, components.Renderable)
+	if not projectile or not renderable then return end
+
+	local definition = abilities[projectile.definition]
+	definition.finish(renderable)
+end)
 
 local function create_projectile(
 	definition: ecs.ProjectileDefinition
@@ -86,10 +101,36 @@ local function evaluate_interpolated(
 	return a.cframe:Lerp(b.cframe, math.clamp(alpha, 0, 1))
 end
 
+local function evaluate_collision(
+	entity: jecs.Entity,
+	next_position: Vector3,
+	renderable: PVInstance
+): RaycastResult?
+	local previous_position = world:get(entity, components.PreviousPosition)
+	local params = world:get(entity, components.Raycast)
+
+	if not params then
+		params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { Workspace.projectiles }
+		world:set(entity, components.Raycast, params)
+	end
+
+	if not previous_position then
+		world:set(entity, components.PreviousPosition, next_position)
+		return nil
+	end
+
+	local displacement = next_position - previous_position
+	local collision = workspace:Raycast(previous_position, displacement, params)
+
+	return collision
+end
+
 local function projectile(delta: number)
 	for entity, projectile in setup_query do
 		local instance = create_projectile(projectile.definition)
-		instance.Parent = workspace
+		instance.Parent = Workspace.projectiles
 
 		local result
 		local now = workspace:GetServerTimeNow()
@@ -111,8 +152,8 @@ local function projectile(delta: number)
 		}, { instance, result })
 	end
 
-	for entity, projectile in query do
-		local result
+	for entity, projectile, renderable in query do
+		local result: CFrame
 		local now = workspace:GetServerTimeNow()
 
 		if projectile.kind == "simple" then
@@ -126,6 +167,10 @@ local function projectile(delta: number)
 		end
 
 		if result then world:set(entity, components.Transform, result) end
+
+		if evaluate_collision(entity, result.Position, renderable) then
+			world:delete(entity)
+		end
 	end
 end
 

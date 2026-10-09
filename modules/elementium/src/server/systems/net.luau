@@ -7,10 +7,21 @@ local util = require "../../../ReplicatedStorage/shared/util"
 local world = ecs.world
 local components = ecs.components
 
-local storages: { [jecs.Entity]: { [jecs.Entity]: any } } = {}
+local storages: { [jecs.Entity]: { [jecs.Entity]: unknown } } = {}
+
+local function get_storage(id: jecs.Entity)
+	local storage = storages[id]
+	if not storage then
+		storage = {}
+		storages[id] = storage
+	end
+
+	return storage
+end
 
 local function net_send()
 	local networked_components = {}
+	local networked_pairs = {}
 
 	for component in world:each(components.Networked) do
 		local name = world:get(component, jecs.Name)
@@ -18,6 +29,12 @@ local function net_send()
 
 		storages[component] = {}
 		networked_components[name] = component
+	end
+
+	for relation in world:each(components.NetworkedPair) do
+		local name = world:get(relation, jecs.Name)
+		assert(name)
+		table.insert(networked_pairs, relation)
 	end
 
 	for name, component in networked_components do
@@ -42,11 +59,37 @@ local function net_send()
 
 		world:removed(
 			component,
-			function(entity) storage[entity] = "jecs.Remove" :: any end
+			function(entity) storage[entity] = "jecs.Remove" end
 		)
 	end
 
-	local players_added = util.collect(Players.PlayerAdded :: any)
+	for _, relation in networked_pairs do
+		world:added(relation, function(entity, id, value)
+			local is_tag = jecs.is_tag(world, id)
+			local storage = get_storage(id)
+
+			if is_tag then
+				storage[entity] = true
+			else
+				storage[entity] = value
+			end
+		end)
+
+		world:changed(relation, function(entity, id, value)
+			local is_tag = jecs.is_tag(world, id)
+			if is_tag then return end
+			local storage = get_storage(id)
+
+			storage[entity] = value
+		end)
+
+		world:removed(relation, function(entity, id)
+			local storage = get_storage(id)
+			storage[entity] = "jecs.Remove"
+		end)
+	end
+
+	local players_added = util.collect(Players.PlayerAdded)
 
 	return function()
 		local initial_snapshot = {}
@@ -87,10 +130,15 @@ local function net_send()
 				end
 
 				local map = {
-					set_ids = set_ids,
-					set_values = set_values,
-					remove = nil,
+					set = set_ids,
+					values = set_values,
 				}
+
+				if jecs.IS_PAIR(component) then
+					map.relation = jecs.pair_first(world, component)
+					map.target = jecs.pair_second(world, component)
+					map.pair = true
+				end
 
 				initial_snapshot[tostring(component)] = map
 			end
@@ -114,7 +162,7 @@ local function net_send()
 					set_index += 1
 					set_ids[set_index] = entity
 					set_values[set_index] = if is_tag then 0 else value
-				elseif world:contains(entity) then
+				else
 					remove_index += 1
 					removed_ids[remove_index] = entity
 				end
@@ -128,10 +176,16 @@ local function net_send()
 
 			if dirty then
 				local map = {
-					set_ids = if set_index > 0 then set_ids else nil,
-					set_values = if set_index > 0 then set_values else nil,
-					remove = if remove_index > 0 then removed_ids else nil,
+					set = if set_index > 0 then set_ids else nil,
+					values = if set_index > 0 then set_values else nil,
+					removed = if remove_index > 0 then removed_ids else nil,
 				}
+
+				if jecs.IS_PAIR(component) then
+					map.relation = jecs.pair_first(world, component)
+					map.target = jecs.pair_second(world, component)
+					map.pair = true
+				end
 
 				snapshot[tostring(component)] = map
 			end

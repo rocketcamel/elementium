@@ -65,11 +65,17 @@ local function character_hip_height(character: ecs.CharacterModel): number
 	return base_height + size_y * 0.5
 end
 
-export type Signal<T...> = {
+export type Signal<T... = ...any> = {
 	Connect: (
 		self: Signal<T...>,
 		callback: (T...) -> ()
 	) -> RBXScriptConnection,
+	ConnectParallel: (
+		self: Signal<T...>,
+		callback: (T...) -> ()
+	) -> RBXScriptConnection,
+	Once: (self: Signal<T...>, callback: (T...) -> ()) -> RBXScriptConnection,
+	Wait: (self: Signal<T...>) -> T...,
 }
 
 local function collect<T...>(signal: Signal<T...>): (() -> T..., RBXScriptConnection)

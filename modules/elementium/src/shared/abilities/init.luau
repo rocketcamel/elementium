@@ -8,6 +8,7 @@ export type Abilities = {
 		max_charge: number,
 		cooldown: number,
 		fire: (...unknown) -> (),
+		finish: (...unknown) -> (),
 	},
 }
 

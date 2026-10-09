@@ -15,6 +15,22 @@ local function assert_run_context(context: "server" | "client")
 	)
 end
 
+export type Snapshot = {
+	[string]: {
+		set: { jecs.Entity }?,
+		values: { unknown }?,
+		removed: { jecs.Entity }?,
+		pair: true,
+		relation: jecs.Entity,
+		target: jecs.Entity,
+	} | {
+		set: { jecs.Entity }?,
+		values: { unknown }?,
+		removed: { jecs.Entity }?,
+		pair: false,
+	},
+}
+
 export type RemoteIndex = {
 	replicate_snapshot: RemoteEvent,
 	report_movement: RemoteEvent,
@@ -38,14 +54,6 @@ local net = {
 	},
 	client = {
 		initialized = false,
-	},
-}
-
-export type Snapshot = {
-	[string]: {
-		set_ids: { jecs.Entity },
-		set_values: { unknown },
-		remove: { jecs.Entity },
 	},
 }
 

@@ -135,9 +135,12 @@ local components = {
 	Velocity = world:component<<Vector3>>(),
 	Renderable = world:component<<PVInstance>>(),
 	Projectile = world:component<<Projectile>>(),
+	PreviousPosition = world:component<<Vector3>>(),
+	Raycast = world:component<<RaycastParams>>(),
 
 	AbilityTarget = world:component<<CharacterModel>>(),
-	Networked = world:component(),
+	Networked = world:entity(),
+	NetworkedPair = world:entity(),
 	CameraFOV = world:component(),
 	CharacterState = world:component<<CharacterState>>(),
 	Meta = world:component<<Meta>>(),

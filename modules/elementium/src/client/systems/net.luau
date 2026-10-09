@@ -1,5 +1,7 @@
 local ecs = require "../../shared/ecs"
+local jecs = require "../../roblox_packages/jecs"
 local net = require "../../shared/ecs/net"
+local util = require "../../shared/util"
 
 local world = ecs.world
 
@@ -12,6 +14,35 @@ end
 local server_entity_map = {}
 
 type Snapshot = net.Snapshot
+
+local function is_component(id: jecs.Id): (string | false)?
+	return world:contains(id) and world:get(id, jecs.Name)
+end
+
+local function ensure_entity(server_id: jecs.Entity): jecs.Entity
+	local id = server_entity_map[server_id]
+
+	if not id then
+		if is_component(server_id) then
+			id = server_id
+		else
+			id = world:entity()
+			server_entity_map[server_id] = id
+		end
+	end
+
+	return id
+end
+
+local function deserialize_pair(
+	relation: jecs.Entity,
+	target: jecs.Entity
+): jecs.Entity
+	local relation_entity = ensure_entity(relation)
+	local target_entity = ensure_entity(target)
+
+	return jecs.pair(relation_entity, target_entity)
+end
 
 local function networking()
 	local snapshots = {}
@@ -32,29 +63,34 @@ local function networking()
 	return function()
 		for snapshot in iter do
 			for component_id, storage in snapshot do
-				local component = components[component_id]
+				local component = (tonumber(component_id) :: any) :: jecs.Entity
 
-				if storage.set_ids then
-					for index, id in storage.set_ids do
-						local client_id = server_entity_map[id]
+				if jecs.IS_PAIR(component) and storage.pair then
+					component =
+						deserialize_pair(storage.relation, storage.target)
+				else
+					component = ensure_entity(component)
+				end
 
-						if not client_id then
-							local entity = world:entity()
-							server_entity_map[id] = entity
-							client_id = entity
-						end
-
+				if storage.set and storage.values then
+					for index, id in storage.set do
+						local client_id = ensure_entity(id)
 						world:set(
 							client_id,
 							component,
-							storage.set_values[index]
+							storage.values[index] :: any
 						)
 					end
 				end
 
-				if storage.remove then
-					for _, id in storage.remove do
-						world:remove(id, component)
+				if storage.removed then
+					for _, id in storage.removed do
+						local client_id = server_entity_map[id] :: any
+
+						if client_id and world:contains(client_id) then
+							world:remove(client_id, component)
+							server_entity_map[id] = nil
+						end
 					end
 				end
 			end
