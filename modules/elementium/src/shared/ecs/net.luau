@@ -35,6 +35,7 @@ export type RemoteIndex = {
 	replicate_snapshot: RemoteEvent,
 	report_movement: RemoteEvent,
 	report_ability: RemoteEvent,
+	entity_delete: RemoteEvent,
 }
 
 export type ReportAbilityReplyPacket =
@@ -85,6 +86,7 @@ function net.server.create()
 		replicate_snapshot = remote "replicate_snapshot",
 		report_movement = remote "report_movement",
 		report_ability = remote "report_ability",
+		entity_delete = remote "entity_delete",
 	}
 
 	remotes = remote_index
@@ -104,6 +106,7 @@ function net.client.create()
 		replicate_snapshot = remote "replicate_snapshot",
 		report_movement = remote "report_movement",
 		report_ability = remote "report_ability",
+		entity_delete = remote "entity_delete",
 	}
 
 	remotes = remote_index
@@ -151,6 +154,31 @@ function net.server.report_successful_ability(
 	}
 
 	remotes.report_ability:FireClient(player, packet)
+end
+
+function net.server.report_entity_deletion(
+	targets: Player | { Player } | "all",
+	entity: jecs.Entity
+)
+	assert_run_context "server"
+	assert(net.server.initialized)
+
+	if targets == "all" then
+		remotes.entity_delete:FireAllClients(entity)
+	elseif typeof(targets) == "table" then
+		for _, target in targets do
+			remotes.entity_delete:FireClient(target, entity)
+		end
+	else
+		remotes.entity_delete:FireClient(targets, entity)
+	end
+end
+
+function net.client.on_entity_delete(fn: (entity: jecs.Entity) -> ())
+	assert_run_context "client"
+	assert(net.client.initialized)
+
+	remotes.entity_delete.OnClientEvent:Connect(fn)
 end
 
 function net.client.on_ability_report_reply(fn: (

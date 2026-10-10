@@ -1,4 +1,6 @@
 local ecs = require "../../../ReplicatedStorage/shared/ecs"
+local jecs = require "../../../ReplicatedStorage/roblox_packages/jecs"
+local net = require "../../../ReplicatedStorage/shared/ecs/net"
 
 local world = ecs.world
 local components = ecs.components
@@ -15,6 +17,10 @@ local function evaluate_simple(
 		+ 0.5 * projectile.acceleration * age * age
 
 	return projectile.origin.Position + displacement
+end
+
+local function delete_projectile(entity: jecs.Entity)
+	net.server.report_entity_deletion("all", entity)
 end
 
 local function projectile(delta: number)
@@ -35,7 +41,7 @@ local function projectile(delta: number)
 			local result = workspace:Raycast(previous_position, displacement)
 
 			if result then
-				world:delete(entity)
+				delete_projectile(entity)
 				continue
 			else
 				previous_position = next_position

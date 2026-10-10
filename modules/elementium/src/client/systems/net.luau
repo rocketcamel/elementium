@@ -53,6 +53,12 @@ local function networking()
 		n += 1
 	end)
 
+	net.client.on_entity_delete(function(id)
+		local client_id = server_entity_map[id] :: jecs.Entity
+		if not client_id or not world:contains(client_id) then return end
+		world:delete(client_id)
+	end)
+
 	local function iter(): ...Snapshot
 		if n == 0 then return end
 		n -= 1
@@ -85,7 +91,7 @@ local function networking()
 
 				if storage.removed then
 					for _, id in storage.removed do
-						local client_id = server_entity_map[id] :: any
+						local client_id = server_entity_map[id] :: jecs.Entity
 
 						if client_id and world:contains(client_id) then
 							world:remove(client_id, component)

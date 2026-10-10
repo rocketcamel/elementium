@@ -215,7 +215,7 @@ local function double_jump()
 	movement.current = {
 		kind = "double_jump" :: "double_jump",
 		vector = result,
-		lifetime = os.clock() + 0.2,
+		lifetime = os.clock() + 0.3,
 		linear_velocity = nil,
 	} :: ecs.DoubleJump
 

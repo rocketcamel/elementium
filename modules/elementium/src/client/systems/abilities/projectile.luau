@@ -160,17 +160,17 @@ local function projectile(delta: number)
 			result = evaluate_simple(projectile, now)
 		elseif projectile.kind == "interpolated" then
 			local snapshots = world:get(entity, components.Snapshots)
+			if not snapshots then continue end
 
-			if snapshots then
-				result = evaluate_interpolated(snapshots, now - 0.1)
-			end
+			result = evaluate_interpolated(snapshots, now - 0.1)
 		end
-
-		if result then world:set(entity, components.Transform, result) end
 
 		if evaluate_collision(entity, result.Position, renderable) then
 			world:delete(entity)
+			continue
 		end
+
+		if result then world:set(entity, components.Transform, result) end
 	end
 end
 
