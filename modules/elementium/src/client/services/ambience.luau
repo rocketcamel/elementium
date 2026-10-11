@@ -6,7 +6,7 @@ export type Ambience = string | {
 }
 
 local ambience: { Ambience } = {
-	{ id = "rbxassetid://9112781689", volume = 1 },
+	{ id = "rbxassetid://9112781689", volume = 2 },
 	"rbxassetid://72067625698084",
 }
 
@@ -28,6 +28,11 @@ local ease_info =
 local function ease_volume(instance: Sound, volume: number)
 	local result = TweenService:Create(instance, ease_info, { Volume = volume })
 	result:Play()
+	result.Completed:Wait()
+end
+
+local function wait_end(instance: Sound)
+	if instance.IsPlaying then instance.Ended:Wait() end
 end
 
 return function()
@@ -43,7 +48,8 @@ return function()
 	ease_volume(instance, settings.volume)
 
 	while true do
-		instance.Ended:Wait()
+		wait_end(instance)
+		ease_volume(instance, 0)
 
 		ambience = choose_background()
 		settings = get_settings(ambience)

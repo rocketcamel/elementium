@@ -3,6 +3,7 @@ local Players = game:GetService "Players"
 local conch = require "../../../ReplicatedStorage/roblox_packages/conch"
 local ecs = require "../../../ReplicatedStorage/shared/ecs"
 local jecs = require "../../../ReplicatedStorage/roblox_packages/jecs"
+local net = require "../../../ReplicatedStorage/shared/ecs/net"
 local storage = require "../../../ReplicatedStorage/shared/storage"
 
 local world = ecs.world
@@ -60,15 +61,6 @@ local function client()
 			function(data) world:set(entity, components.Session, data) end
 		)
 
-		session:patch(function(data)
-			print(data)
-			data.meta = {
-				permissions = { "administration", "jabby" },
-			}
-
-			return data
-		end)
-
 		if permissions then
 			local user = conch.get_user(player)
 			conch.give_roles(user, unpack(permissions))
@@ -86,7 +78,13 @@ local function client()
 		end
 	end)
 
-	Players.PlayerRemoving:Connect(function(player) storage.cleanup(player) end)
+	Players.PlayerRemoving:Connect(function(player)
+		storage.cleanup(player)
+
+		local entity_id = player:GetAttribute "entity_id" :: jecs.Entity
+		world:delete(entity_id)
+		net.server.report_entity_deletion("all", entity_id)
+	end)
 end
 
 return {
