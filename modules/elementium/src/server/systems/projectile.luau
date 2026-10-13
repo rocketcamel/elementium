@@ -5,7 +5,9 @@ local net = require "../../../ReplicatedStorage/shared/ecs/net"
 local world = ecs.world
 local components = ecs.components
 
-local query = world:query(components.Projectile, components.Velocity):cached()
+local query = world
+	:query(components.Projectile, components.Velocity, components.Owner)
+	:cached()
 
 local function evaluate_simple(
 	projectile: ecs.SimpleProjectile,
@@ -21,12 +23,13 @@ end
 
 local function delete_projectile(entity: jecs.Entity)
 	net.server.report_entity_deletion("all", entity)
+	world:delete(entity)
 end
 
 local function projectile(delta: number)
 	local now = workspace:GetServerTimeNow()
 
-	for entity, projectile, velocity in query do
+	for entity, projectile, velocity, owner in query do
 		if projectile.kind == "simple" then
 			local next_position = evaluate_simple(projectile, now)
 			local previous_position =
@@ -38,7 +41,17 @@ local function projectile(delta: number)
 			end
 
 			local displacement = next_position - previous_position
-			local result = workspace:Raycast(previous_position, displacement)
+			local params = world:get(entity, components.Raycast)
+
+			if not params then
+				params = RaycastParams.new()
+				params.FilterType = Enum.RaycastFilterType.Exclude
+				params.FilterDescendantsInstances = { owner }
+				world:set(entity, components.Raycast, params)
+			end
+
+			local result =
+				workspace:Raycast(previous_position, displacement, params)
 
 			if result then
 				delete_projectile(entity)

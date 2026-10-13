@@ -1,6 +1,7 @@
 local Players = game:GetService "Players"
 
 local camera = require "./camera"
+local client_util = require "../util"
 local ecs = require "../../shared/ecs"
 local net = require "../../shared/ecs/net"
 local util = require "../../shared/util"
@@ -48,13 +49,14 @@ local function grounded(character: ecs.Character)
 	return result and result.Distance <= hip_height + 0.2
 end
 
-local function MOVEMENT_END(ability: ecs.Movement): ecs.MovementKind?
-	if not ability.current then return nil end
+local function MOVEMENT_END(movement: ecs.Movement): ecs.MovementKind?
+	if not movement.current then return nil end
+	local character = CHARACTER_GET()
 
-	ability.previous = ability.current.kind
+	movement.previous = movement.current.kind
 
-	local current = ability.current
-	local kind = ability.current.kind
+	local current = movement.current
+	local kind = movement.current.kind
 
 	if current.kind == "dash" then
 		if current.linear_velocity then current.linear_velocity:Destroy() end
@@ -64,21 +66,28 @@ local function MOVEMENT_END(ability: ecs.Movement): ecs.MovementKind?
 		if current.linear_velocity then current.linear_velocity:Destroy() end
 	elseif current.kind == "double_jump" then
 		if current.linear_velocity then current.linear_velocity:Destroy() end
+	elseif current.kind == "wallrun" then
+		if current.linear_velocity then current.linear_velocity:Destroy() end
+		current.animation_track:Stop()
+
+		if character and util.validate_character(character) then
+			client_util.state_jump(character.instance, true)
+		end
 	end
 
-	ability.current = nil
+	movement.current = nil
 
 	return kind
 end
 
 local function ensure_linear_velocity(
 	character: ecs.CharacterModel,
-	ability: ecs.Movement
+	movement: ecs.Movement
 ): LinearVelocity
-	assert(ability.current)
+	assert(movement.current)
 
-	local linear_velocity = ability.current.linear_velocity :: LinearVelocity
-	local current = ability.current
+	local linear_velocity = movement.current.linear_velocity :: LinearVelocity
+	local current = movement.current
 
 	if not linear_velocity then
 		linear_velocity = Instance.new "LinearVelocity"
@@ -92,13 +101,13 @@ local function ensure_linear_velocity(
 			linear_velocity.LineDirection = Vector3.yAxis
 		end
 
-		ability.current.linear_velocity = linear_velocity
+		movement.current.linear_velocity = linear_velocity
 	end
 
 	if current.kind == "double_jump" then
-		linear_velocity.LineVelocity = ability.current.vector.Y
+		linear_velocity.LineVelocity = movement.current.vector.Y
 	else
-		linear_velocity.VectorVelocity = ability.current.vector
+		linear_velocity.VectorVelocity = movement.current.vector
 	end
 
 	return linear_velocity
@@ -113,7 +122,7 @@ local function movement()
 	local movement = GET()
 	local character = CHARACTER_GET()
 
-	if not (character and util.validate_character(character)) then return end
+	if not character or not util.validate_character(character) then return end
 	if grounded(character) then movement.air_jump = 1 end
 	if not movement.current then return end
 
@@ -124,16 +133,41 @@ local function movement()
 		current.vector = dash_vector
 	end
 
+	if current.kind == "wallrun" then
+		local wall = client_util.wallrun.get_wall(character.instance)
+		if not wall then
+			MOVEMENT_END(movement)
+			return
+		end
+
+		local tangent =
+			client_util.wallrun.wall_tangent(character.instance, wall)
+		local result = client_util.wallrun.correct(
+			character.instance,
+			wall,
+			tangent,
+			character.instance.HumanoidRootPart.AssemblyLinearVelocity
+		)
+
+		current.vector = result
+	end
+
 	ensure_linear_velocity(character.instance, movement)
 
-	if (current.lifetime - os.clock()) <= 0 then MOVEMENT_END(movement) end
+	if
+		current.kind == "dash"
+		or current.kind == "dash_endjump"
+		or current.kind == "double_jump"
+	then
+		if (current.lifetime - os.clock()) <= 0 then MOVEMENT_END(movement) end
+	end
 end
 
 local function dash(lifetime: number)
 	local movement = GET()
 	local character = CHARACTER_GET()
 
-	if not character then return end
+	if not character or not util.validate_character(character) then return end
 	MOVEMENT_END(movement)
 
 	local dash_vector = character.instance.HumanoidRootPart.CFrame.LookVector
@@ -163,7 +197,7 @@ local function dash_endjump()
 	local movement = GET()
 	local character = CHARACTER_GET()
 
-	if not character then return end
+	if not character or not util.validate_character(character) then return end
 	MOVEMENT_END(movement)
 
 	local look_vector = character.instance.HumanoidRootPart.CFrame.LookVector
@@ -202,7 +236,14 @@ local function double_jump()
 	local movement = GET()
 	local character = CHARACTER_GET()
 
-	if not character or movement.air_jump == 0 then return end
+	if
+		not character
+		or movement.air_jump == 0
+		or not util.validate_character(character)
+	then
+		return
+	end
+
 	MOVEMENT_END(movement)
 
 	local result = Vector3.yAxis * JUMP_MAGNITUDE
@@ -226,9 +267,66 @@ local function double_jump()
 	SET(movement)
 end
 
+local function wallrun()
+	local movement = GET()
+	local character = CHARACTER_GET()
+
+	if not character or not util.validate_character(character) then return end
+
+	local wall, side = client_util.wallrun.get_wall(character.instance)
+	if not wall then return end
+	MOVEMENT_END(movement)
+	client_util.state_jump(character.instance, false)
+
+	local tangent = client_util.wallrun.wall_tangent(character.instance, wall)
+	local result = client_util.wallrun.correct(
+		character.instance,
+		wall,
+		tangent,
+		character.instance.HumanoidRootPart.AssemblyLinearVelocity
+	)
+
+	local animation = Instance.new "Animation"
+	if side == "left" then
+		animation.AnimationId = util.retrieve_animation "wallrun_l"
+	else
+		animation.AnimationId = util.retrieve_animation "wallrun_r"
+	end
+
+	local track = character.instance.Humanoid.Animator:LoadAnimation(animation)
+
+	movement.current = {
+		kind = "wallrun" :: "wallrun",
+		vector = result,
+		animation_track = track,
+		linear_velocity = nil,
+	} :: ecs.Wallrun
+
+	net.client.report_movement "wallrun"
+	track:Play()
+
+	SET(movement)
+end
+
+local function wallrun_end()
+	local movement = GET()
+
+	if not movement then return end
+	local current = movement.current
+
+	if current and current.kind == "wallrun" then MOVEMENT_END(movement) end
+end
+
 local function current_movement(): ecs.MovementKind?
 	local movement = GET()
 	if movement.current then return movement.current.kind end
+
+	return nil
+end
+
+local function previous_movement(): ecs.MovementKind?
+	local movement = GET()
+	if movement.previous then return movement.previous end
 
 	return nil
 end
@@ -240,6 +338,16 @@ return {
 	dash = dash,
 	dash_endjump = dash_endjump,
 	double_jump = double_jump,
+	wallrun = wallrun,
+	wallrun_end = wallrun_end,
+	near_wall = function()
+		local character = CHARACTER_GET()
+		if not character or not util.validate_character(character) then
+			return false
+		end
+
+		return client_util.wallrun.near_wall(character.instance)
+	end,
 
 	grounded = function(): boolean?
 		local character = CHARACTER_GET()
@@ -251,4 +359,5 @@ return {
 	end,
 
 	current = current_movement,
+	previous = previous_movement,
 }

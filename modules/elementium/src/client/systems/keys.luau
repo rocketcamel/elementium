@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService "ReplicatedStorage"
 
+local client_util = require "../util"
 local ecs = require "../../shared/ecs"
 local movement = require "./movement"
 
@@ -73,6 +74,20 @@ local function cooldown(kind: ecs.MovementKind)
 	return false
 end
 
+local candidate_map: { [ecs.MovementKind]: { ecs.MovementKind } } = {
+	dash = { "dash", "dash_endjump", "double_jump", "wallrun" },
+	dash_endjump = { "dash", "double_jump", "wallrun" },
+	double_jump = { "dash", "double_jump", "wallrun" },
+	wallrun = { "dash", "double_jump", "wallrun" },
+}
+
+local function candidate(
+	from: ecs.MovementKind | "any",
+	to: ecs.MovementKind
+): boolean
+	return from == "any" or table.find(candidate_map[from], to) ~= nil
+end
+
 return {
 	phase = "startup",
 	system = function()
@@ -88,7 +103,7 @@ return {
 		end, Enum.KeyCode.Q)
 
 		registry:register(
-			"dash_endjump",
+			"dash_endjump & wallrun",
 			Enum.InputActionType.Bool,
 			function(pressed)
 				assert(typeof(pressed) == "boolean")
@@ -96,8 +111,17 @@ return {
 				if pressed and movement.current() == "dash" then
 					movement.dash_endjump()
 				elseif
+					movement.near_wall()
+					and candidate(movement.previous() or "any", "wallrun")
+				then
+					if pressed and not movement.grounded() then
+						movement.wallrun()
+					else
+						movement.wallrun_end()
+					end
+				elseif
 					pressed
-					and not movement.current()
+					and candidate(movement.previous() or "any", "double_jump")
 					and not movement.grounded()
 				then
 					movement.double_jump()

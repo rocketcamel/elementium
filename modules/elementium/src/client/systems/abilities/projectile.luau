@@ -1,3 +1,4 @@
+local Players = game:GetService "Players"
 local ReplicatedStorage = game:GetService "ReplicatedStorage" :: Storage
 local Workspace = game:GetService "Workspace" :: WorkspaceStorage
 
@@ -23,7 +24,7 @@ local setup = world:entity()
 
 local setup_query = world:query(components.Projectile):without(setup):cached()
 local query = world
-	:query(components.Projectile, components.Renderable)
+	:query(components.Projectile, components.Renderable, components.Owner)
 	:with(components.Transform)
 	:cached()
 
@@ -101,10 +102,18 @@ local function evaluate_interpolated(
 	return a.cframe:Lerp(b.cframe, math.clamp(alpha, 0, 1))
 end
 
+local function get_character_fatal(): ecs.CharacterModel
+	local character = Players.LocalPlayer.Character
+	assert(character)
+
+	return character :: ecs.CharacterModel
+end
+
 local function evaluate_collision(
 	entity: jecs.Entity,
 	next_position: Vector3,
-	renderable: PVInstance
+	renderable: PVInstance,
+	owner: Instance
 ): RaycastResult?
 	local previous_position = world:get(entity, components.PreviousPosition)
 	local params = world:get(entity, components.Raycast)
@@ -112,7 +121,7 @@ local function evaluate_collision(
 	if not params then
 		params = RaycastParams.new()
 		params.FilterType = Enum.RaycastFilterType.Exclude
-		params.FilterDescendantsInstances = { Workspace.projectiles }
+		params.FilterDescendantsInstances = { Workspace.projectiles, owner }
 		world:set(entity, components.Raycast, params)
 	end
 
@@ -152,7 +161,7 @@ local function projectile(delta: number)
 		}, { instance, result })
 	end
 
-	for entity, projectile, renderable in query do
+	for entity, projectile, renderable, owner in query do
 		local result: CFrame
 		local now = workspace:GetServerTimeNow()
 
@@ -165,7 +174,7 @@ local function projectile(delta: number)
 			result = evaluate_interpolated(snapshots, now - 0.1)
 		end
 
-		if evaluate_collision(entity, result.Position, renderable) then
+		if evaluate_collision(entity, result.Position, renderable, owner) then
 			world:delete(entity)
 			continue
 		end

@@ -7,6 +7,8 @@ local storage = require "./storage"
 
 local world = jecs.world()
 
+local IS_SERVER = RunService:IsServer()
+
 export type CharacterModel = Model & {
 	Head: BasePart,
 	Torso: BasePart,
@@ -47,11 +49,11 @@ export type Meta = {
 -- movement
 --------------------------------------------------------------------------------
 
-export type MovementKind = "dash" | "dash_endjump" | "double_jump"
+export type MovementKind = "dash" | "dash_endjump" | "double_jump" | "wallrun"
 
 export type Movement = {
 	previous: MovementKind?,
-	current: (Dash | Dash_EndJump | DoubleJump)?,
+	current: (Dash | Dash_EndJump | DoubleJump | Wallrun)?,
 	air_jump: number,
 }
 
@@ -75,6 +77,13 @@ export type DoubleJump = {
 	kind: "double_jump",
 	vector: Vector3,
 	lifetime: number,
+	linear_velocity: LinearVelocity?,
+}
+
+export type Wallrun = {
+	kind: "wallrun",
+	vector: Vector3,
+	animation_track: AnimationTrack,
 	linear_velocity: LinearVelocity?,
 }
 
@@ -137,6 +146,7 @@ local components = {
 	Projectile = world:component<<Projectile>>(),
 	PreviousPosition = world:component<<Vector3>>(),
 	Raycast = world:component<<RaycastParams>>(),
+	Owner = world:component<<Instance>>(),
 
 	AbilityTarget = world:component<<CharacterModel>>(),
 	Networked = world:entity(),
@@ -153,6 +163,7 @@ world:add(components.Session, components.Networked)
 world:add(components.ReplicatedPosition, components.Networked)
 world:add(components.Velocity, components.Networked)
 world:add(components.Projectile, components.Networked)
+world:add(components.Owner, components.Networked)
 
 for name, component in components :: any do
 	world:set(component, jecs.Name, name)
@@ -204,14 +215,14 @@ local function create()
 	} :: any)
 
 	jabby.set_check_function(function(player)
-		local entity_id = if RunService:IsServer()
-			then player:GetAttribute "entity_id" :: number
-			else player:GetAttribute "client_entity_id" :: number
+		local entity_id = if IS_SERVER
+			then player:GetAttribute "entity_id" :: number?
+			else player:GetAttribute "client_entity_id" :: number?
 
 		if entity_id then
 			local meta = world:get(entity_id, components.Meta)
 
-			if meta and table.find(meta.permissions, "jabby") then
+			if meta and table.find(meta.permissions, "owner") then
 				return true
 			end
 		end

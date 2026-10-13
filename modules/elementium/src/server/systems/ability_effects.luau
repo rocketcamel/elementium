@@ -42,6 +42,14 @@ local function dash_endjump(player: Player)
 	play_sound(character.instance.HumanoidRootPart, "rbxassetid://6128977275")
 end
 
+local function get_character_fatal(player: Player): ecs.Character
+	local character = util.get_character(player)
+	assert(character)
+	assert(util.validate_character(character))
+
+	return character
+end
+
 local function ability_effects()
 	net.server.on_movement_report(function(player, movement)
 		if movement == "dash" then
@@ -53,10 +61,9 @@ local function ability_effects()
 
 	net.server.on_ability_report(function(player, kind, target)
 		local entity = world:entity()
-		local character = player.Character :: ecs.CharacterModel
-		assert(character)
+		local character = get_character_fatal(player)
 
-		local position = character.HumanoidRootPart.CFrame
+		local position = character.instance.HumanoidRootPart.CFrame
 			* Vector3.new(0, 0, -3)
 		local direction = (target - position).Unit
 		local cframe = CFrame.new(position, position + direction)
@@ -65,6 +72,7 @@ local function ability_effects()
 		jecs.bulk_insert(world, entity, {
 			components.Projectile,
 			components.Velocity,
+			components.Owner,
 		}, {
 			{
 				kind = "simple" :: "simple",
@@ -76,6 +84,7 @@ local function ability_effects()
 				spawn_time = now,
 			},
 			direction * 80,
+			character.instance,
 		})
 	end)
 end

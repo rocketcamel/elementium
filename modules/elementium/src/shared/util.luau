@@ -7,6 +7,9 @@ local jecs = require "../roblox_packages/jecs"
 local world = ecs.world
 local components = ecs.components
 
+local IS_SERVER = RunService:IsServer()
+local IS_CLIENT = RunService:IsClient()
+
 export type Storage = ReplicatedStorage & {
 	animations: Folder & {
 		dash: StringValue,
@@ -14,16 +17,12 @@ export type Storage = ReplicatedStorage & {
 	},
 }
 
-local function entity_id(player: Player): jecs.Entity
-	local entity_id = if RunService:IsServer()
-		then player:GetAttribute "entity_id" :: jecs.Entity?
-		else player:GetAttribute "client_entity_id" :: jecs.Entity?
-	assert(entity_id, "player has no entity id")
-
-	return entity_id
-end
-
-export type Animation = "dash" | "dash_endjump" | "double_jump"
+export type Animation =
+	"dash"
+	| "dash_endjump"
+	| "double_jump"
+	| "wallrun_l"
+	| "wallrun_r"
 
 local function retrieve_animation(name: Animation): string
 	local result =
@@ -33,10 +32,23 @@ local function retrieve_animation(name: Animation): string
 	return `rbxassetid://{result.Value}`
 end
 
+local function player_entity_id(player: Player): jecs.Entity?
+	return if IS_SERVER
+		then player:GetAttribute "entity_id" :: jecs.Entity?
+		else player:GetAttribute "client_entity_id" :: jecs.Entity?
+end
+
+local function player_entity_id_fatal(player: Player): jecs.Entity
+	local entity_id = if IS_SERVER
+		then player:GetAttribute "entity_id" :: jecs.Entity?
+		else player:GetAttribute "client_entity_id" :: jecs.Entity?
+	assert(entity_id, "player has no entity id")
+
+	return entity_id
+end
+
 local function get_character(player: Player): ecs.Character?
-	local entity_id = if RunService:IsServer()
-		then player:GetAttribute "entity_id" :: jecs.Entity
-		else player:GetAttribute "client_entity_id" :: jecs.Entity
+	local entity_id = player_entity_id(player)
 	if not entity_id then return nil end
 
 	local character = world:get(entity_id, components.Character)
@@ -99,9 +111,10 @@ end
 
 return {
 	collect = collect,
+	player_entity_id = player_entity_id,
+	player_entity_id_fatal = player_entity_id_fatal,
 	get_character = get_character,
 	validate_character = validate_character,
 	character_hip_height = character_hip_height,
 	retrieve_animation = retrieve_animation,
-	entity_id = entity_id,
 }

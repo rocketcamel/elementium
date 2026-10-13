@@ -1,7 +1,10 @@
+local ReplicatedStorage = game:GetService "ReplicatedStorage"
 local RunService = game:GetService "RunService"
 
-local conch = require "../roblox_packages/conch"
-local conch_ui = require "../roblox_packages/conch_ui"
+type CmdrClient = {
+	SetActivationKeys: (self: CmdrClient, { Enum.KeyCode }) -> (),
+	Registry: any,
+}
 
 local function visit_command(node: ModuleScript)
 	if not node:IsA "ModuleScript" then return end
@@ -21,14 +24,23 @@ local function visit(root: Instance)
 end
 
 local function create()
-	conch.initiate_default_lifecycle()
-
-	visit(script.commands)
-
 	if RunService:IsServer() then
-		conch.set_role_permissions("administration", "handout", "debug")
+		local cmdr = require "../roblox_packages/cmdr";
+
+		(cmdr :: any).Registry:RegisterDefaultCommands()
+		cmdr.Registry:RegisterCommandsIn(script.commands)
+		cmdr.Registry:RegisterTypesIn(script.types)
+
+		local before_run = require "@self/hooks/before_run"
+		before_run(cmdr.Registry)
 	else
-		conch_ui.bind_to(Enum.KeyCode.F2)
+		local cmdr_client = require(
+			ReplicatedStorage:WaitForChild "CmdrClient" :: any
+		) :: CmdrClient
+
+		local before_run = require "@self/hooks/before_run_client"
+		before_run(cmdr_client.Registry)
+		cmdr_client:SetActivationKeys { Enum.KeyCode.F2 }
 	end
 end
 

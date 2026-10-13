@@ -1,6 +1,6 @@
+local GroupService = game:GetService "GroupService"
 local Players = game:GetService "Players"
 
-local conch = require "../../../ReplicatedStorage/roblox_packages/conch"
 local ecs = require "../../../ReplicatedStorage/shared/ecs"
 local jecs = require "../../../ReplicatedStorage/roblox_packages/jecs"
 local net = require "../../../ReplicatedStorage/shared/ecs/net"
@@ -61,16 +61,35 @@ local function client()
 			function(data) world:set(entity, components.Session, data) end
 		)
 
-		if permissions then
-			local user = conch.get_user(player)
-			conch.give_roles(user, unpack(permissions))
+		local result =
+			GroupService:GetRolesInGroupAsync(player.User, 524756377) :: {
+				IsMember: boolean,
+				Roles: { { Id: number, Name: string, Rank: number } },
+			}
 
+		for _, role in result.Roles do
+			if role.Rank == 254 then
+				session:patch(function(data)
+					if not data.meta then
+						data.meta = {
+							permissions = { "owner", "admin" },
+						}
+					elseif not table.find(data.meta.permissions, "owner") then
+						table.insert(data.meta.permissions, "owner")
+					end
+
+					return data
+				end)
+			end
+		end
+
+		if permissions then
 			world:set(entity, components.Meta, {
 				permissions = permissions,
 			})
 
 			print(
-				"assigned role(s)",
+				"assigned rank(s)",
 				table.concat(permissions, ","),
 				"to player",
 				player
