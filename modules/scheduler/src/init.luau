@@ -1,14 +1,18 @@
+--------------------------------------------------------------------------------
+-- scheduler.luau
+-- v0.1.2
+--------------------------------------------------------------------------------
+
 local jabby = require "./roblox_packages/jabby"
 
-type System = (delta: number) -> ()
+export type Phase =
+	"startup"
+	| "pre_simulation"
+	| "input"
+	| "update"
+	| "post_simulation"
 
-export type Info = {
-	id: number,
-	system: System,
-	delta: number,
-}
-
-export type Phase = "startup" | "pre_simulation" | "input" | "post_simulation"
+export type System = (delta: number) -> ()
 
 export type SystemDeclaration = {
 	name: string?,
@@ -16,32 +20,42 @@ export type SystemDeclaration = {
 	phase: Phase,
 }
 
-local PHASE_ORDER: { Phase } = { "pre_simulation", "input", "post_simulation" }
+export type Info = {
+	id: number,
+	fn: System,
+	delta: number,
+}
+
+local PHASE_ORDER: { Phase } =
+	{ "startup", "pre_simulation", "input", "update", "post_simulation" }
 
 local function scheduler()
 	local jabby_scheduler = jabby.scheduler.create()
 	local started = false
 
-	local systems: { [Phase]: { Info } } = {
-		["startup"] = {},
-		["pre_simulation"] = {},
-		["input"] = {},
-		["post_simulation"] = {},
+	local system_phase_map: { [Phase]: { Info } } = {
+		startup = {},
+		pre_simulation = {},
+		input = {},
+		update = {},
+		post_simulation = {},
 	}
 
 	local function scheduler_add_system(node: SystemDeclaration)
-		local name = node.name or debug.info(node.system, "n")
+		local name = node.name or debug.info(node.system, "n") :: string
 		local source, l = debug.info(node.system, "sl")
 
+		if #name == 0 then name = `{source}:{l}` end
+
 		local id = jabby_scheduler:register_system {
-			name = name or `{source}:{l}`,
+			name = name,
 			phase = node.phase,
 			paused = false,
 		}
 
-		table.insert(systems[node.phase], {
+		table.insert(system_phase_map[node.phase], {
 			id = id,
-			system = node.system,
+			fn = node.system,
 			delta = 0,
 		})
 	end
@@ -55,12 +69,12 @@ local function scheduler()
 	end
 
 	local function run_phase(phase: Phase, delta: number)
-		for _, info in systems[phase] do
-			jabby_scheduler:run(info.id, function()
+		for _, system in system_phase_map[phase] do
+			jabby_scheduler:run(system.id, function()
 				local now = os.clock()
 
-				info.system(delta)
-				info.delta = (os.clock() - now)
+				system.fn(delta)
+				system.delta = os.clock() - now
 			end)
 		end
 	end
@@ -70,10 +84,8 @@ local function scheduler()
 			run_phase("startup", delta)
 			started = true
 
-			for _, info in systems["startup"] do
-				jabby_scheduler:set_system_data(info.id, {
-					paused = true,
-				})
+			for _, info in system_phase_map.startup do
+				jabby_scheduler:set_system_data(info.id, { paused = true })
 			end
 		end
 

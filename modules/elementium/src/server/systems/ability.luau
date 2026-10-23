@@ -1,6 +1,7 @@
+local definitions = require "../../../ReplicatedStorage/shared/abilities"
 local ecs = require "../../../ReplicatedStorage/shared/ecs"
 local jecs = require "../../../ReplicatedStorage/roblox_packages/jecs"
-local net = require "../../../ReplicatedStorage/shared/ecs/net"
+local net = require "../../../ReplicatedStorage/shared/net"
 local util = require "../../../ReplicatedStorage/shared/util"
 
 local world = ecs.world
@@ -36,6 +37,7 @@ local function dash(player: Player)
 		"rbxassetid://116541827502640"
 	)
 end
+
 local function dash_endjump(player: Player)
 	local character = character_get(player)
 	if not character or not util.validate_character(character) then return end
@@ -50,7 +52,7 @@ local function get_character_fatal(player: Player): ecs.Character
 	return character
 end
 
-local function ability_effects()
+local function ability()
 	net.server.on_movement_report(function(player, movement)
 		if movement == "dash" then
 			dash(player)
@@ -69,6 +71,8 @@ local function ability_effects()
 		local cframe = CFrame.new(position, position + direction)
 		local now = workspace:GetServerTimeNow()
 
+		local definition = definitions[kind]
+
 		jecs.bulk_insert(world, entity, {
 			components.Projectile,
 			components.Velocity,
@@ -76,14 +80,14 @@ local function ability_effects()
 		}, {
 			{
 				kind = "simple" :: "simple",
-				definition = "firey_blow" :: "firey_blow",
+				definition = kind,
 
 				origin = cframe,
-				initial_velocity = direction * 80,
+				initial_velocity = direction * definition.velocity,
 				acceleration = Vector3.zero,
 				spawn_time = now,
 			},
-			direction * 80,
+			direction * definition.velocity,
 			character.instance,
 		})
 	end)
@@ -91,5 +95,5 @@ end
 
 return {
 	phase = "startup",
-	system = ability_effects,
+	system = ability,
 }

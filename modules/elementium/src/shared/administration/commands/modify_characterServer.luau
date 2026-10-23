@@ -20,7 +20,6 @@ return function(
 			return "invalid inputs"
 		end
 
-		print(value, character[field], typeof(value), typeof(character[field]))
 		if typeof(value) == typeof(character[field]) then
 			character[field] = value
 			ecs.world:set(entity_id, ecs.components.Character, character)

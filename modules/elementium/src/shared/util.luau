@@ -1,4 +1,4 @@
-local ReplicatedStorage = game:GetService "ReplicatedStorage" :: Storage
+local ReplicatedStorage = game:GetService "ReplicatedStorage"
 local RunService = game:GetService "RunService"
 
 local ecs = require "./ecs"
@@ -9,13 +9,6 @@ local components = ecs.components
 
 local IS_SERVER = RunService:IsServer()
 local IS_CLIENT = RunService:IsClient()
-
-export type Storage = ReplicatedStorage & {
-	animations: Folder & {
-		dash: StringValue,
-		dash_endjump: StringValue,
-	},
-}
 
 export type Animation =
 	"dash"

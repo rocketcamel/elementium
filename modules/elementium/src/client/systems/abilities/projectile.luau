@@ -1,17 +1,10 @@
 local Players = game:GetService "Players"
-local ReplicatedStorage = game:GetService "ReplicatedStorage" :: Storage
 local Workspace = game:GetService "Workspace" :: WorkspaceStorage
 
 local abilities = require "../../../shared/abilities"
 local ecs = require "../../../shared/ecs"
 local jecs = require "../../../roblox_packages/jecs"
 local util = require "../../../roblox_packages/util"
-
-type Storage = ReplicatedStorage & {
-	storage: Folder & {
-		firey_blow: Model,
-	},
-}
 
 type WorkspaceStorage = Workspace & {
 	projectiles: Folder,
@@ -40,10 +33,7 @@ end)
 local function create_projectile(
 	definition: ecs.ProjectileDefinition
 ): PVInstance
-	local instance = ReplicatedStorage.storage[definition] :: PVInstance?
-	assert(instance)
-
-	return instance:Clone()
+	return abilities[definition].get_instance():Clone()
 end
 
 util.observer(world:query(components.ReplicatedPosition), function(entity)
@@ -184,6 +174,6 @@ local function projectile(delta: number)
 end
 
 return {
-	phase = "pre_simulation",
+	phase = "update",
 	system = projectile,
 }

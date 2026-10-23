@@ -1,22 +1,60 @@
 local Players = game:GetService "Players"
 local UserInputService = game:GetService "UserInputService"
 
-local abilities = require "../../shared/abilities"
+local definitions = require "../../shared/abilities"
 local ecs = require "../../shared/ecs"
-local jecs = require "../../roblox_packages/jecs"
 local util = require "../../shared/util"
 
 local world = ecs.world
 local components = ecs.components
 
-type AbilityKind = ecs.AbilityKind
+local function GET(): { ecs.ElementMove }?
+	local entity = util.player_entity_id(Players.LocalPlayer)
+	if not entity then return nil end
 
-local ability_entity_map = {}
+	return world:get(entity, components.Element)
+end
 
-world:set(components.Hotbar, jecs.OnRemove, function(entity, id)
-	local data = world:get(entity, components.Hotbar)
-	if data and data.binding then data.binding:Destroy() end
-end)
+local function BINDING_GET(kind: ecs.AbilityKind): Tool?
+	local entity = util.player_entity_id(Players.LocalPlayer)
+	if not entity then return nil end
+
+	local bindings = world:get(entity, components.ElementBindings)
+	if not bindings then
+		world:set(
+			entity,
+			components.ElementBindings,
+			{} :: { [ecs.AbilityKind]: Tool? }
+		)
+		return nil
+	end
+
+	return bindings[kind]
+end
+
+local function BINDING_SET(kind: ecs.AbilityKind, value: Tool)
+	local entity = util.player_entity_id(Players.LocalPlayer)
+	assert(entity)
+
+	local bindings = world:get(entity, components.ElementBindings)
+	if not bindings then return end
+
+	bindings[kind] = value
+
+	world:set(entity, components.ElementBindings, bindings)
+end
+
+local function VALID_BINDING(player: Player, binding: Tool)
+	local backpack = player.Backpack
+	local character = player.Character
+	local parent = binding.Parent
+
+	return parent ~= nil
+		and (
+			(backpack ~= nil and parent == backpack)
+			or (character ~= nil and parent == character)
+		)
+end
 
 local function get_mouse_vector(character: ecs.Character): Vector3
 	local camera = workspace.CurrentCamera
@@ -47,101 +85,92 @@ end
 
 local function cooldown(duration: number): number return os.clock() + duration end
 
-local function activate(item: ecs.Hotbar)
-	local kind = item.kind
-	if item.cooldown then return end
+local function activate(move: ecs.ElementMove)
+	if move.cooldown then return end
 
-	local definition = abilities[kind]
+	local definition = definitions[move.kind]
 	local direction = get_direction_fatal()
 
 	if definition.trigger == "press" then
 		definition.fire(direction)
 	else
-		item.charge = os.clock()
+		move.charge = os.clock()
 	end
 end
 
-local function deactivate(item: ecs.Hotbar)
-	local definition = abilities[item.kind]
-	local direction = get_direction_fatal()
-	if item.cooldown or not item.charge then return end
+local function deactivate(move: ecs.ElementMove)
+	if move.cooldown or not move.charge then return end
 
-	if definition.trigger ~= "release" then return end
+	local definition = definitions[move.kind]
+	local direction = get_direction_fatal()
 
 	definition.fire(direction)
-
-	item.charge = nil
-	item.cooldown = cooldown(item.cooldown_duration)
+	move.charge = nil
+	move.cooldown = cooldown(definition.cooldown)
 end
 
-local function grant(kind: AbilityKind, container: Instance, name: string)
-	if ability_entity_map[kind] then return end
-
-	local item: ecs.Hotbar = {
-		kind = kind,
-		name = name,
-		cooldown_duration = 1,
-	}
+local function create_binding(player: Player, move: ecs.ElementMove): Tool
+	local definition = definitions[move.kind]
 
 	local instance = Instance.new "Tool"
-	instance.Parent = container
-	instance.Name = name
+	instance.Parent = player.Backpack
+	instance.Name = definition.name
 	instance.RequiresHandle = false
 	instance.CanBeDropped = false
 
-	instance.Activated:Connect(function() activate(item) end)
-	instance.Deactivated:Connect(function() deactivate(item) end)
+	instance.Activated:Connect(function() activate(move) end)
+	instance.Deactivated:Connect(function() deactivate(move) end)
 
-	item.binding = instance
-
-	local entity = world:entity()
-	world:set(entity, components.Hotbar, item)
-
-	ability_entity_map[kind] = entity
+	return instance
 end
 
-local function revoke(kind: AbilityKind)
-	local entity = ability_entity_map[kind]
+local function reconcile_binding(
+	player: Player,
+	move: ecs.ElementMove,
+	binding: Tool?
+)
+	if binding and not VALID_BINDING(player, binding) then
+		move.binding = nil
+		move.charge = nil
+		move.cooldown = nil
 
-	if entity and world:contains(entity) then world:delete(entity) end
+		binding:Destroy()
+		binding = (nil :: any) :: Tool
+	end
 
-	ability_entity_map[kind] = nil
-end
+	if not binding then
+		binding = create_binding(player, move)
+		BINDING_SET(move.kind, binding)
+	end
+	assert(binding)
 
-local function reconcile_cooldown(item: ecs.Hotbar)
-	if not item.binding then return end
+	local definition = definitions[move.kind]
 
-	if item.cooldown then
-		local remaining = item.cooldown - os.clock()
+	if move.cooldown then
+		local remaining = move.cooldown - os.clock()
 
 		if remaining >= 0 then
-			item.binding.Name =
-				`{item.name} ({string.format("%.1f", remaining)})`
+			binding.Name =
+				`{definition.name} ({string.format("%.1f", remaining)})`
 		else
-			item.cooldown = nil
+			move.cooldown = nil
 		end
 	else
-		item.binding.Name = item.name
+		binding.Name = definition.name
 	end
 end
 
-local query = world:query(components.Hotbar):cached()
-
 local function hotbar()
-	for entity, hotbar in query do
-		reconcile_cooldown(hotbar)
+	local moves = GET()
+	if not moves then return end
+
+	for _, move in moves do
+		local binding = BINDING_GET(move.kind)
+		reconcile_binding(Players.LocalPlayer, move, binding)
 	end
 end
 
 return {
-	phase = "post_simulation",
+	phase = "update",
 	system = hotbar,
-	create_abilities = function(player: Player)
-		local container = player.Backpack
-
-		grant("firey_blow", container, "Firey blow")
-	end,
-
-	grant = grant,
-	revoke = revoke,
 }

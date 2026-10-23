@@ -3,11 +3,17 @@ local RunService = game:GetService "RunService"
 local jabby = require "../roblox_packages/jabby"
 local jecs = require "../roblox_packages/jecs"
 local scheduler = require "../roblox_packages/scheduler"
-local storage = require "./storage"
 
 local world = jecs.world()
 
 local IS_SERVER = RunService:IsServer()
+
+local function component<T>(name: string): jecs.Entity<T>
+	local id = world:component<<T>>()
+	world:set(id, jecs.Name, name)
+
+	return id
+end
 
 export type CharacterModel = Model & {
 	Head: BasePart,
@@ -91,7 +97,14 @@ export type Wallrun = {
 -- abilities
 --------------------------------------------------------------------------------
 
-export type AbilityKind = "firey_blow"
+export type AbilityKind = "fiery_blow"
+
+export type ElementMove = {
+	kind: AbilityKind,
+	cooldown: number?,
+	charge: number?,
+	binding: Tool?,
+}
 
 export type Hotbar = {
 	kind: AbilityKind,
@@ -107,7 +120,7 @@ export type PositionSnapshot = {
 	server_time: number,
 }
 
-export type ProjectileDefinition = "firey_blow"
+export type ProjectileDefinition = "fiery_blow"
 
 export type SimpleProjectile = {
 	kind: "simple",
@@ -127,33 +140,34 @@ export type InterpolatedProjectile = {
 export type Projectile = SimpleProjectile | InterpolatedProjectile
 
 local components = {
-	Player = world:component<<Player>>(),
-	Character = world:component<<Character>>(),
-	Session = world:component<<storage.Store>>(),
-	CharacterRef = world:component<<CharacterRef>>(),
-	Motion = world:component<<MotionRequest>>(),
+	Player = component<<Player>> "Player",
+	Character = component<<Character>> "Character",
+	Session = component<<storage.Store>> "Session",
+	CharacterRef = component<<CharacterRef>> "CharacterRef",
+	Motion = component<<MotionRequest>> "Motion",
 
-	Movement = world:component<<Movement>>(),
-	Dash = world:component<<Dash>>(),
-	Hotbar = world:component<<Hotbar>>(),
+	Movement = component<<Movement>> "Movement",
+	Dash = component<<Dash>> "Dash",
 
-	Ability = world:component<<Ability>>(),
-	ReplicatedPosition = world:component<<PositionSnapshot>>(),
-	Snapshots = world:component<<{ PositionSnapshot }>>(),
-	Transform = world:component<<CFrame>>(),
-	Velocity = world:component<<Vector3>>(),
-	Renderable = world:component<<PVInstance>>(),
-	Projectile = world:component<<Projectile>>(),
-	PreviousPosition = world:component<<Vector3>>(),
-	Raycast = world:component<<RaycastParams>>(),
-	Owner = world:component<<Instance>>(),
+	Ability = component<<Ability>> "Ability",
+	Element = component<<{ ElementMove }>> "Element",
+	ElementBindings = component<<{ [ecs.AbilityKind]: Tool? }>> "ElementBindings",
 
-	AbilityTarget = world:component<<CharacterModel>>(),
+	ReplicatedPosition = component<<PositionSnapshot>> "ReplicatedPosition",
+	Snapshots = component<<{ PositionSnapshot }>> "Snapshots",
+	Transform = component<<CFrame>> "Transform",
+	Velocity = component<<Vector3>> "Velocity",
+	Renderable = component<<PVInstance>> "Renderable",
+	Projectile = component<<Projectile>> "Projectile",
+	PreviousPosition = component<<Vector3>> "PreviousPosition",
+	Raycast = component<<RaycastParams>> "Raycast",
+	Owner = component<<Instance>> "Owner",
+
+	AbilityTarget = component<<CharacterModel>> "AbilityTarget",
 	Networked = world:entity(),
 	NetworkedPair = world:entity(),
-	CameraFOV = world:component(),
-	CharacterState = world:component<<CharacterState>>(),
-	Meta = world:component<<Meta>>(),
+	CameraFOV = component "CameraFOV",
+	Meta = component<<Meta>> "Meta",
 }
 
 world:add(components.Character, components.Networked)
@@ -164,10 +178,7 @@ world:add(components.ReplicatedPosition, components.Networked)
 world:add(components.Velocity, components.Networked)
 world:add(components.Projectile, components.Networked)
 world:add(components.Owner, components.Networked)
-
-for name, component in components :: any do
-	world:set(component, jecs.Name, name)
-end
+world:add(components.Element, components.Networked)
 
 local ecs_scheduler = scheduler.create()
 
@@ -237,18 +248,11 @@ local function create()
 	end
 end
 
-local function create_component<T>(name: string): jecs.Entity<T>
-	local id = world:component<<T>>()
-	world:set(id, jecs.Name, name)
-
-	return id
-end
-
 return {
 	world = world,
 	components = components,
 	scheduler = ecs_scheduler,
-	create_component = create_component,
+	create_component = component,
 
 	create = create,
 }

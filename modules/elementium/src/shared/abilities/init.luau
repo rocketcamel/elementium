@@ -2,18 +2,24 @@ local ecs = require "../shared/ecs"
 
 export type Trigger = "release" | "press"
 
-export type Abilities = {
-	[ecs.AbilityKind]: {
-		trigger: Trigger,
-		max_charge: number,
-		cooldown: number,
-		fire: (...unknown) -> (),
-		finish: (...unknown) -> (),
-	},
+export type AbilityKind = "projectile"
+
+export type Projectile = {
+	kind: AbilityKind,
+	name: string,
+	trigger: Trigger,
+	max_charge: number,
+	cooldown: number,
+	velocity: number,
+	fire: <U...>(U...) -> (),
+	finish: <T>(T) -> (),
+	get_instance: () -> PVInstance,
 }
 
-local abilities: Abilities = {
-	["firey_blow"] = require "@self/firey_blow",
+export type AbilityType = Projectile
+
+local abilities: { [ecs.AbilityKind]: AbilityType } = {
+	fiery_blow = require "@self/fiery_blow" :: any,
 }
 
 return abilities

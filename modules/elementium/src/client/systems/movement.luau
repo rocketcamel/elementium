@@ -3,7 +3,7 @@ local Players = game:GetService "Players"
 local camera = require "./camera"
 local client_util = require "../util"
 local ecs = require "../../shared/ecs"
-local net = require "../../shared/ecs/net"
+local net = require "../../shared/net"
 local util = require "../../shared/util"
 
 local world = ecs.world
@@ -332,7 +332,7 @@ local function previous_movement(): ecs.MovementKind?
 end
 
 return {
-	phase = "post_simulation",
+	phase = "update",
 	system = movement,
 
 	dash = dash,

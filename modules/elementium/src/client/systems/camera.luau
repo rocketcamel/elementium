@@ -204,7 +204,7 @@ end
 local function wrap(fn: (id: number) -> ()) fn(ID_CREATE()) end
 
 return {
-	phase = "post_simulation",
+	phase = "update",
 	system = camera,
 
 	kick = kick,

@@ -1,6 +1,6 @@
 local administration = require "../ReplicatedStorage/shared/administration"
 local ecs = require "../ReplicatedStorage/shared/ecs"
-local net = require "../ReplicatedStorage/shared/ecs/net"
+local net = require "../ReplicatedStorage/shared/net"
 local services = require "./server/services"
 local systems = require "./server/systems"
 

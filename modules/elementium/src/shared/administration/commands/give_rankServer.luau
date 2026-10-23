@@ -1,20 +1,30 @@
-local storage = require "../../storage"
+local storage = require "../../../../ServerScriptService/server/storage"
 
-type Session<T> = storage.Session<T>
-type Store = storage.Store
-
-local function give_rank_action(data: Store, rank: string): Store
-	if not data.meta then
-		data.meta = {
-			permissions = { rank },
-		}
+local function display(player: Player): string
+	if player.DisplayName ~= player.Name then
+		return `{player.DisplayName} @({player.Name})`
 	else
-		if not table.find(data.meta.permissions, rank) then
-			table.insert(data.meta.permissions, rank)
-		end
+		return player.DisplayName
 	end
+end
 
-	return data
+local function give_rank_action(player: Player, rank: string)
+	local session = storage.get_session(player)
+	assert(session)
+
+	session:patch(function(data)
+		local meta = data.meta
+
+		if not meta then
+			meta = {
+				permissions = { rank },
+			}
+		else
+			table.insert(meta.permissions, rank)
+		end
+
+		return data
+	end)
 end
 
 local function give_rank(
@@ -23,18 +33,19 @@ local function give_rank(
 	rank: string
 ): string
 	local names = {}
+	local issues = {}
 
 	for _, player in players do
-		local session = storage.get_session(player)
-		if not session then
-			return "player has no session, wait until they have fully loaded"
-		end
-
-		session:patch(give_rank_action, rank)
-		table.insert(names, player.Name)
+		local ok = pcall(give_rank_action, player, rank)
+		if not ok then table.insert(issues, display(player)) end
 	end
 
-	return `gave rank {rank} to {table.concat(names, ",")}`
+	local success = `gave rank {rank} to {table.concat(names, ",")}`
+	if #issues > 0 then
+		return `{success}, failed: {table.concat(issues, ",")}`
+	else
+		return success
+	end
 end
 
 return give_rank

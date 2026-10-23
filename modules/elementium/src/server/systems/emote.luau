@@ -79,6 +79,6 @@ end
 
 return {
 	name = "emote",
-	phase = "post_simulation",
+	phase = "update",
 	system = emote(),
 }

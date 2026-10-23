@@ -1,8 +1,9 @@
 local ReplicatedStorage = game:GetService "ReplicatedStorage"
 local RunService = game:GetService "RunService"
+local replication = require "./ecs/replication"
 
-local ecs = require "../ecs"
-local jecs = require "../../roblox_packages/jecs"
+local ecs = require "./ecs"
+local jecs = require "../roblox_packages/jecs"
 
 local run_context: "server" | "client" = if RunService:IsServer()
 	then "server"
@@ -32,7 +33,7 @@ export type Snapshot = {
 }
 
 export type RemoteIndex = {
-	replicate_snapshot: RemoteEvent,
+	replicate: RemoteEvent,
 	report_movement: RemoteEvent,
 	report_ability: RemoteEvent,
 	entity_delete: RemoteEvent,
@@ -83,7 +84,7 @@ function net.server.create()
 	end
 
 	local remote_index: RemoteIndex = {
-		replicate_snapshot = remote "replicate_snapshot",
+		replicate = remote "replicate",
 		report_movement = remote "report_movement",
 		report_ability = remote "report_ability",
 		entity_delete = remote "entity_delete",
@@ -103,7 +104,7 @@ function net.client.create()
 	end
 
 	local remote_index: RemoteIndex = {
-		replicate_snapshot = remote "replicate_snapshot",
+		replicate = remote "replicate",
 		report_movement = remote "report_movement",
 		report_ability = remote "report_ability",
 		entity_delete = remote "entity_delete",
@@ -113,11 +114,11 @@ function net.client.create()
 	net.client.initialized = true
 end
 
-function net.server.replicate_snapshot(player: Player, snapshot: unknown)
+function net.server.replicate(snapshot: replication.Snapshot)
 	assert_run_context "server"
 	assert(net.server.initialized, "server not initialized")
 
-	remotes.replicate_snapshot:FireClient(player, snapshot)
+	remotes.replicate:FireAllClients(snapshot)
 end
 
 function net.server.on_movement_report(fn: (
@@ -197,11 +198,11 @@ function net.client.report_ability(kind: ecs.AbilityKind, direction: Vector3)
 	remotes.report_ability:FireServer(kind, direction)
 end
 
-function net.client.on_replicate_snapshot(fn: (snapshot: Snapshot) -> ())
+function net.client.on_replicate(fn: (snapshot: replication.Snapshot) -> ())
 	assert_run_context "client"
 	assert(net.client.initialized)
 
-	remotes.replicate_snapshot.OnClientEvent:Connect(fn)
+	remotes.replicate.OnClientEvent:Connect(fn)
 end
 
 function net.client.report_movement(ability: ecs.MovementKind)

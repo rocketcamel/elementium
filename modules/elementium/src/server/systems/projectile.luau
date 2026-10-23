@@ -1,6 +1,6 @@
 local ecs = require "../../../ReplicatedStorage/shared/ecs"
 local jecs = require "../../../ReplicatedStorage/roblox_packages/jecs"
-local net = require "../../../ReplicatedStorage/shared/ecs/net"
+local net = require "../../../ReplicatedStorage/shared/net"
 
 local world = ecs.world
 local components = ecs.components
@@ -81,6 +81,6 @@ local function projectile(delta: number)
 end
 
 return {
-	phase = "pre_simulation",
+	phase = "update",
 	system = projectile,
 }
