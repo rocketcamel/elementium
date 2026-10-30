@@ -1,32 +1,32 @@
-local Players = game:GetService "Players"
+const Players = game:GetService "Players"
 
-local camera = require "./camera"
-local client_util = require "../util"
-local ecs = require "../../shared/ecs"
-local net = require "../../shared/net"
-local util = require "../../shared/util"
+const camera = require "./camera"
+const client_util = require "../util"
+const ecs = require "../../shared/ecs"
+const net = require "../../shared/net"
+const util = require "../../shared/util"
 
-local world = ecs.world
-local components = ecs.components
+const world = ecs.world
+const components = ecs.components
 
 world:set(components.Movement, components.Movement, { air_jump = 1 })
 
-local DASH_VELOCITY = 80
+const DASH_VELOCITY = 80
 
-local function GET(): ecs.Movement
+const function GET(): ecs.Movement
 	return world:get(components.Movement, components.Movement) :: ecs.Movement
 end
 
-local function SET(data: ecs.Movement)
+const function SET(data: ecs.Movement)
 	world:set(components.Movement, components.Movement, data)
 end
 
-local function CHARACTER_GET(): ecs.Character?
-	local entity_id =
+const function CHARACTER_GET(): ecs.Character?
+	const entity_id =
 		Players.LocalPlayer:GetAttribute "client_entity_id" :: number
 
 	if entity_id then
-		local character =
+		const character =
 			world:get(entity_id, components.Character, components.Character)
 		return character
 	end
@@ -34,29 +34,29 @@ local function CHARACTER_GET(): ecs.Character?
 	return nil
 end
 
-local function grounded(character: ecs.Character)
-	local params = RaycastParams.new()
+const function grounded(character: ecs.Character)
+	const params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { character.instance }
 
-	local root = character.instance.HumanoidRootPart
-	local hip_height = util.character_hip_height(character.instance)
-	local direction = hip_height + 1
+	const root = character.instance.HumanoidRootPart
+	const hip_height = util.character_hip_height(character.instance)
+	const direction = hip_height + 1
 
-	local result =
+	const result =
 		workspace:Raycast(root.Position, Vector3.yAxis * -direction, params)
 
 	return result and result.Distance <= hip_height + 0.2
 end
 
-local function MOVEMENT_END(movement: ecs.Movement): ecs.MovementKind?
+const function MOVEMENT_END(movement: ecs.Movement): ecs.MovementKind?
 	if not movement.current then return nil end
-	local character = CHARACTER_GET()
+	const character = CHARACTER_GET()
 
 	movement.previous = movement.current.kind
 
-	local current = movement.current
-	local kind = movement.current.kind
+	const current = movement.current
+	const kind = movement.current.kind
 
 	if current.kind == "dash" then
 		if current.linear_velocity then current.linear_velocity:Destroy() end
@@ -64,7 +64,7 @@ local function MOVEMENT_END(movement: ecs.Movement): ecs.MovementKind?
 	elseif current.kind == "dash_endjump" then
 		current.animation_track:Stop()
 		if current.linear_velocity then current.linear_velocity:Destroy() end
-	elseif current.kind == "double_jump" then
+	elseif current.kind == "side_dash" or current.kind == "double_jump" then
 		if current.linear_velocity then current.linear_velocity:Destroy() end
 	elseif current.kind == "wallrun" then
 		if current.linear_velocity then current.linear_velocity:Destroy() end
@@ -80,14 +80,14 @@ local function MOVEMENT_END(movement: ecs.Movement): ecs.MovementKind?
 	return kind
 end
 
-local function ensure_linear_velocity(
+const function ensure_linear_velocity(
 	character: ecs.CharacterModel,
 	movement: ecs.Movement
 ): LinearVelocity
 	assert(movement.current)
 
 	local linear_velocity = movement.current.linear_velocity :: LinearVelocity
-	local current = movement.current
+	const current = movement.current
 
 	if not linear_velocity then
 		linear_velocity = Instance.new "LinearVelocity"
@@ -113,36 +113,35 @@ local function ensure_linear_velocity(
 	return linear_velocity
 end
 
-local function get_dash_vector(character: ecs.CharacterModel): Vector3
-	local forward_vector = character.HumanoidRootPart.CFrame.LookVector
+const function get_dash_vector(character: ecs.CharacterModel): Vector3
+	const forward_vector = character.HumanoidRootPart.CFrame.LookVector
 	return Vector3.new(forward_vector.X, 0, forward_vector.Z) * DASH_VELOCITY
 end
 
-local function movement()
-	local movement = GET()
-	local character = CHARACTER_GET()
+const function movement()
+	const movement, character = GET(), CHARACTER_GET()
 
 	if not character or not util.validate_character(character) then return end
 	if grounded(character) then movement.air_jump = 1 end
 	if not movement.current then return end
 
-	local current = movement.current
+	const current = movement.current
 
 	if current.kind == "dash" then
-		local dash_vector = get_dash_vector(character.instance)
+		const dash_vector = get_dash_vector(character.instance)
 		current.vector = dash_vector
 	end
 
 	if current.kind == "wallrun" then
-		local wall = client_util.wallrun.get_wall(character.instance)
+		const wall = client_util.wallrun.get_wall(character.instance)
 		if not wall then
 			MOVEMENT_END(movement)
 			return
 		end
 
-		local tangent =
+		const tangent =
 			client_util.wallrun.wall_tangent(character.instance, wall)
-		local result = client_util.wallrun.correct(
+		const result = client_util.wallrun.correct(
 			character.instance,
 			wall,
 			tangent,
@@ -157,26 +156,26 @@ local function movement()
 	if
 		current.kind == "dash"
 		or current.kind == "dash_endjump"
+		or current.kind == "side_dash"
 		or current.kind == "double_jump"
 	then
 		if (current.lifetime - os.clock()) <= 0 then MOVEMENT_END(movement) end
 	end
 end
 
-local function dash(lifetime: number)
-	local movement = GET()
-	local character = CHARACTER_GET()
+const function dash(lifetime: number)
+	const movement, character = GET(), CHARACTER_GET()
 
 	if not character or not util.validate_character(character) then return end
 	MOVEMENT_END(movement)
 
-	local dash_vector = character.instance.HumanoidRootPart.CFrame.LookVector
+	const dash_vector = character.instance.HumanoidRootPart.CFrame.LookVector
 		* DASH_VELOCITY
 
-	local animation = Instance.new "Animation"
+	const animation = Instance.new "Animation"
 	animation.AnimationId = util.retrieve_animation "dash"
 
-	local track = character.instance.Humanoid.Animator:LoadAnimation(animation)
+	const track = character.instance.Humanoid.Animator:LoadAnimation(animation)
 
 	movement.current = {
 		kind = "dash" :: "dash",
@@ -193,27 +192,26 @@ local function dash(lifetime: number)
 	SET(movement)
 end
 
-local function dash_endjump()
-	local movement = GET()
-	local character = CHARACTER_GET()
+const function dash_endjump()
+	const movement, character = GET(), CHARACTER_GET()
 
 	if not character or not util.validate_character(character) then return end
 	MOVEMENT_END(movement)
 
-	local look_vector = character.instance.HumanoidRootPart.CFrame.LookVector
+	const look_vector = character.instance.HumanoidRootPart.CFrame.LookVector
 
-	local forward = Vector3.new(look_vector.X, 0, look_vector.Z).Unit
+	const forward = Vector3.new(look_vector.X, 0, look_vector.Z).Unit
 
-	local angle = math.rad(30)
-	local direction = forward * math.cos(angle)
+	const angle = math.rad(30)
+	const direction = forward * math.cos(angle)
 		+ Vector3.yAxis * math.sin(angle)
 
-	local result = direction * DASH_VELOCITY
+	const result = direction * DASH_VELOCITY
 
-	local animation = Instance.new "Animation"
+	const animation = Instance.new "Animation"
 	animation.AnimationId = util.retrieve_animation "dash_endjump"
 
-	local track = character.instance.Humanoid.Animator:LoadAnimation(animation)
+	const track = character.instance.Humanoid.Animator:LoadAnimation(animation)
 
 	movement.current = {
 		kind = "dash_endjump",
@@ -230,9 +228,31 @@ local function dash_endjump()
 	SET(movement)
 end
 
-local JUMP_MAGNITUDE = 50
+const function side_dash(direction: "left" | "right")
+	const movement, character = GET(), CHARACTER_GET()
+	if not character or not util.validate_character(character) then return end
+	MOVEMENT_END(movement)
 
-local function double_jump()
+	const cframe = character.instance.HumanoidRootPart.CFrame
+	const direction_vector = if direction == "left"
+		then -cframe.RightVector
+		else cframe.RightVector
+
+	const result = direction_vector * 40
+
+	movement.current = {
+		kind = "side_dash",
+		vector = result,
+		lifetime = os.clock() + 0.2,
+		linear_velocity = nil,
+	} :: ecs.SideDash
+
+	SET(movement)
+end
+
+const JUMP_MAGNITUDE = 50
+
+const function double_jump()
 	local movement = GET()
 	local character = CHARACTER_GET()
 
@@ -246,12 +266,12 @@ local function double_jump()
 
 	MOVEMENT_END(movement)
 
-	local result = Vector3.yAxis * JUMP_MAGNITUDE
+	const result = Vector3.yAxis * JUMP_MAGNITUDE
 
-	local animation = Instance.new "Animation"
+	const animation = Instance.new "Animation"
 	animation.AnimationId = util.retrieve_animation "double_jump"
 
-	local track = character.instance.Humanoid.Animator:LoadAnimation(animation)
+	const track = character.instance.Humanoid.Animator:LoadAnimation(animation)
 
 	movement.current = {
 		kind = "double_jump" :: "double_jump",
@@ -267,33 +287,32 @@ local function double_jump()
 	SET(movement)
 end
 
-local function wallrun()
-	local movement = GET()
-	local character = CHARACTER_GET()
+const function wallrun()
+	const movement, character = GET(), CHARACTER_GET()
 
 	if not character or not util.validate_character(character) then return end
 
-	local wall, side = client_util.wallrun.get_wall(character.instance)
+	const wall, side = client_util.wallrun.get_wall(character.instance)
 	if not wall then return end
 	MOVEMENT_END(movement)
 	client_util.state_jump(character.instance, false)
 
-	local tangent = client_util.wallrun.wall_tangent(character.instance, wall)
-	local result = client_util.wallrun.correct(
+	const tangent = client_util.wallrun.wall_tangent(character.instance, wall)
+	const result = client_util.wallrun.correct(
 		character.instance,
 		wall,
 		tangent,
 		character.instance.HumanoidRootPart.AssemblyLinearVelocity
 	)
 
-	local animation = Instance.new "Animation"
+	const animation = Instance.new "Animation"
 	if side == "left" then
 		animation.AnimationId = util.retrieve_animation "wallrun_l"
 	else
 		animation.AnimationId = util.retrieve_animation "wallrun_r"
 	end
 
-	local track = character.instance.Humanoid.Animator:LoadAnimation(animation)
+	const track = character.instance.Humanoid.Animator:LoadAnimation(animation)
 
 	movement.current = {
 		kind = "wallrun" :: "wallrun",
@@ -308,8 +327,8 @@ local function wallrun()
 	SET(movement)
 end
 
-local function wallrun_end()
-	local movement = GET()
+const function wallrun_end()
+	const movement = GET()
 
 	if not movement then return end
 	local current = movement.current
@@ -317,15 +336,15 @@ local function wallrun_end()
 	if current and current.kind == "wallrun" then MOVEMENT_END(movement) end
 end
 
-local function current_movement(): ecs.MovementKind?
-	local movement = GET()
+const function current_movement(): ecs.MovementKind?
+	const movement = GET()
 	if movement.current then return movement.current.kind end
 
 	return nil
 end
 
-local function previous_movement(): ecs.MovementKind?
-	local movement = GET()
+const function previous_movement(): ecs.MovementKind?
+	const movement = GET()
 	if movement.previous then return movement.previous end
 
 	return nil
@@ -337,11 +356,12 @@ return {
 
 	dash = dash,
 	dash_endjump = dash_endjump,
+	side_dash = side_dash,
 	double_jump = double_jump,
 	wallrun = wallrun,
 	wallrun_end = wallrun_end,
 	near_wall = function()
-		local character = CHARACTER_GET()
+		const character = CHARACTER_GET()
 		if not character or not util.validate_character(character) then
 			return false
 		end
@@ -350,7 +370,7 @@ return {
 	end,
 
 	grounded = function(): boolean?
-		local character = CHARACTER_GET()
+		const character = CHARACTER_GET()
 		if not character or not util.validate_character(character) then
 			return nil
 		end

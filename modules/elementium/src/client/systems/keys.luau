@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService "ReplicatedStorage"
+local UserInputService = game:GetService "UserInputService"
 
 local client_util = require "../util"
 local ecs = require "../../shared/ecs"
@@ -77,6 +78,7 @@ end
 local candidate_map: { [ecs.MovementKind]: { ecs.MovementKind } } = {
 	dash = { "dash", "dash_endjump", "double_jump", "wallrun" },
 	dash_endjump = { "dash", "double_jump", "wallrun" },
+	side_dash = { "dash", "side_dash", "double_jump", "wallrun" },
 	double_jump = { "dash", "double_jump", "wallrun" },
 	wallrun = { "dash", "double_jump", "wallrun" },
 }
@@ -95,8 +97,17 @@ return {
 
 		registry:register("dash", Enum.InputActionType.Bool, function(pressed)
 			assert(typeof(pressed) == "boolean")
+			if not pressed then return end
 
-			if pressed and not cooldown "dash" then
+			const left = UserInputService:IsKeyDown(Enum.KeyCode.A)
+			const right = UserInputService:IsKeyDown(Enum.KeyCode.D)
+
+			if left or right and not cooldown "side_dash" then
+				movement.side_dash(if left then "left" else "right")
+				return apply_cooldown("side_dash", 1)
+			end
+
+			if not cooldown "dash" then
 				movement.dash(0.38)
 				apply_cooldown("dash", 2)
 			end

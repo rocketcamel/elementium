@@ -22,3 +22,4 @@ cmdr = { wally = "evaera/cmdr", version = "1.13.1" }
 util = { workspace = "rocketcamel/elementium_util" }
 elementium_ui = { workspace = "rocketcamel/elementium_ui" }
 profile_store = { wally = "lm-loleris/profilestore", version = "1.0.3" }
+elementium_net = { workspace = "rocketcamel/elementium_net" }

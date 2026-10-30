@@ -1,6 +1,6 @@
 --------------------------------------------------------------------------------
 -- replication.luau
--- v0.2.0
+-- v0.2.1
 --------------------------------------------------------------------------------
 
 local ecs = require "../ecs"
@@ -253,7 +253,16 @@ local function apply_snapshot(snapshot: Snapshot)
 		if storage.ids and storage.values then
 			for index, id in storage.ids do
 				local client_id = ensure_entity(id)
-				world:set(client_id, component, storage.values[index] :: any)
+
+				if jecs.is_tag(world, component) then
+					world:add(client_id, component)
+				else
+					world:set(
+						client_id,
+						component,
+						storage.values[index] :: any
+					)
+				end
 			end
 		end
 

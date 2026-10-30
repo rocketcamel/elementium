@@ -8,6 +8,9 @@ target = "roblox"
 [workspace."rocketcamel/elementium"]
 roblox = "modules/elementium"
 
+[workspace."rocketcamel/elementium_net"]
+roblox = "modules/elementium_net"
+
 [workspace."rocketcamel/elementium_scheduler"]
 roblox = "modules/scheduler"
 

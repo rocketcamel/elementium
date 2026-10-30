@@ -1,0 +1,36 @@
+{
+    "lsp": {
+        "luau-lsp": {
+            "settings": {
+                "roblox": {
+                    "enabled": true
+                },
+                "fflags": {
+                    "enable_new_solver": true,
+                    "enable_by_default": true
+                },
+                "plugin": {
+                    "enabled": true
+                },
+                "luau-lsp": {
+                    "sourcemap": {
+                        "enabled": true,
+                        "autogenerate": true
+                    },
+                    "ignoreGlobs": ["**/_Index/**"],
+                    "completion": {
+                        "enabled": true,
+                        "imports": {
+                            "enabled": true,
+                            "requireStyle": "AlwaysAbsolute",
+                            "stringRequires": {
+                                "enabled": true
+                            },
+                            "useConst": true
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

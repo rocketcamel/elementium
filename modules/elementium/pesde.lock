@@ -5,6 +5,13 @@ name = "rocketcamel/elementium"
 version = "0.1.0"
 target = "roblox"
 
+[graph."rocketcamel/elementium_net@0.1.0 roblox"]
+direct = ["elementium_net", { workspace = "rocketcamel/elementium_net", version = "^" }, "standard"]
+
+[graph."rocketcamel/elementium_net@0.1.0 roblox".pkg_ref]
+ref_ty = "workspace"
+path = "modules/elementium_net"
+
 [graph."rocketcamel/elementium_scheduler@0.1.0 roblox"]
 direct = ["scheduler", { workspace = "rocketcamel/elementium_scheduler", version = "^" }, "standard"]
 
