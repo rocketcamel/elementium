@@ -99,13 +99,13 @@ return {
 			assert(typeof(pressed) == "boolean")
 			if not pressed then return end
 
-			const left = UserInputService:IsKeyDown(Enum.KeyCode.A)
-			const right = UserInputService:IsKeyDown(Enum.KeyCode.D)
+			-- const left = UserInputService:IsKeyDown(Enum.KeyCode.A)
+			-- const right = UserInputService:IsKeyDown(Enum.KeyCode.D)
 
-			if left or right and not cooldown "side_dash" then
-				movement.side_dash(if left then "left" else "right")
-				return apply_cooldown("side_dash", 1)
-			end
+			-- if left or right and not cooldown "side_dash" then
+			-- 	movement.side_dash(if left then "left" else "right")
+			-- 	return apply_cooldown("side_dash", 1)
+			-- end
 
 			if not cooldown "dash" then
 				movement.dash(0.38)

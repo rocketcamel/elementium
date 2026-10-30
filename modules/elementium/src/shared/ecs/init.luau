@@ -265,7 +265,7 @@ return {
 	world = world,
 	components = components,
 	scheduler = ecs_scheduler,
-	create_component = component,
+	component = component,
 
 	create = create,
 }

@@ -1,157 +1,183 @@
 const Players = game:GetService "Players"
 
-const camera = require "./camera"
-const client_util = require "../util"
 const ecs = require "../../shared/ecs"
 const net = require "../../shared/net"
 const util = require "../../shared/util"
+const camera = require "./camera"
+const client_util = require "../util"
 
-const world = ecs.world
-const components = ecs.components
+local world = ecs.world
+local components = ecs.components
 
-world:set(components.Movement, components.Movement, { air_jump = 1 })
+export type MovementKind =
+	"dash"
+	| "dash_endjump"
+	| "side_dash"
+	| "double_jump"
+	| "wallrun"
 
-const DASH_VELOCITY = 80
+export type Movement = {
+	previous: MovementKind?,
+	current: (Dash | Dash_EndJump | SideDash | DoubleJump | Wallrun)?,
+	air_jump: number,
+}
 
-const function GET(): ecs.Movement
-	return world:get(components.Movement, components.Movement) :: ecs.Movement
+export type Dash = {
+	kind: "dash",
+	vector: Vector3,
+	lifetime: number,
+	animation_track: AnimationTrack,
+}
+
+export type Dash_EndJump = {
+	kind: "dash_endjump",
+	vector: Vector3,
+	lifetime: number,
+	animation_track: AnimationTrack,
+}
+
+export type SideDash = {
+	kind: "side_dash",
+	vector: Vector3,
+	lifetime: number,
+	animation_track: AnimationTrack,
+}
+
+export type DoubleJump = {
+	kind: "double_jump",
+	vector: Vector3,
+	lifetime: number,
+}
+
+export type Wallrun = {
+	kind: "wallrun",
+	vector: Vector3,
+	animation_track: AnimationTrack,
+}
+
+export type VectorBase = {
+	kind: "air" | "ground",
+	vector: Vector3?,
+	movement: Movement,
+	linear_velocity: LinearVelocity?,
+}
+
+export type MovementType = "additive" | "exclusive"
+
+const movement_type_map: { [MovementKind]: MovementType } = {
+	dash = "additive",
+	dash_endjump = "additive",
+	side_dash = "additive",
+	double_jump = "exclusive",
+	wallrun = "exclusive",
+}
+
+const VectorBase = ecs.component<<VectorBase>> "Movement"
+
+const function GET(): VectorBase
+	return world:get(VectorBase, VectorBase) :: VectorBase
 end
 
-const function SET(data: ecs.Movement)
-	world:set(components.Movement, components.Movement, data)
-end
+const function SET(base: VectorBase) world:set(VectorBase, VectorBase, base) end
 
 const function CHARACTER_GET(): ecs.Character?
-	const entity_id =
-		Players.LocalPlayer:GetAttribute "client_entity_id" :: number
-
-	if entity_id then
-		const character =
-			world:get(entity_id, components.Character, components.Character)
-		return character
-	end
-
-	return nil
+	return util.get_character(Players.LocalPlayer)
 end
 
-const function grounded(character: ecs.Character)
+const function flat(v: Vector3) return Vector3.new(v.X, 0, v.Z) end
+
+SET {
+	kind = "ground",
+	movement = {
+		air_jump = 1,
+	},
+}
+
+const function grounded(character: ecs.CharacterModel): boolean
 	const params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { character.instance }
+	params.FilterDescendantsInstances = { character }
 
-	const root = character.instance.HumanoidRootPart
-	const hip_height = util.character_hip_height(character.instance)
+	const root = character.HumanoidRootPart
+	const hip_height = util.character_hip_height(character)
 	const direction = hip_height + 1
 
-	const result =
-		workspace:Raycast(root.Position, Vector3.yAxis * -direction, params)
+	const result = workspace:Shapecast(root, Vector3.yAxis * -direction, params)
 
-	return result and result.Distance <= hip_height + 0.2
+	return result and result.Distance <= hip_height + 0.2 or false
 end
 
-const function MOVEMENT_END(movement: ecs.Movement): ecs.MovementKind?
-	if not movement.current then return nil end
-	const character = CHARACTER_GET()
+const function handle_air(
+	base: VectorBase,
+	delta: number,
+	character: ecs.CharacterModel
+): Vector3
+	const movement = base.movement
+	const root = character.HumanoidRootPart
 
-	movement.previous = movement.current.kind
+	const assembly = root.AssemblyLinearVelocity
+	const move_direction = character.Humanoid.MoveDirection
+	const horizontal = flat(assembly) + flat(move_direction)
+	const speed = horizontal.Magnitude
+
+	const next_horizontal = if horizontal.Magnitude > 0
+		then horizontal * (math.max(0, speed - 25 * delta) / speed)
+		else Vector3.zero
+
+	const movement_vector = next_horizontal
+		+ Vector3.yAxis * (assembly.Y - workspace.Gravity * delta)
 
 	const current = movement.current
-	const kind = movement.current.kind
+	if not current then return movement_vector end
 
-	if current.kind == "dash" then
-		if current.linear_velocity then current.linear_velocity:Destroy() end
-		current.animation_track:Stop()
-	elseif current.kind == "dash_endjump" then
-		current.animation_track:Stop()
-		if current.linear_velocity then current.linear_velocity:Destroy() end
-	elseif current.kind == "side_dash" or current.kind == "double_jump" then
-		if current.linear_velocity then current.linear_velocity:Destroy() end
-	elseif current.kind == "wallrun" then
-		if current.linear_velocity then current.linear_velocity:Destroy() end
-		current.animation_track:Stop()
+	return movement_vector
+end
 
-		if character and util.validate_character(character) then
-			client_util.state_jump(character.instance, true)
-		end
+const function handle_ground(
+	base: VectorBase,
+	character: ecs.Character
+): Vector3?
+	const movement = base.movement
+	const current = movement.current
+
+	return current and current.vector or nil
+end
+
+const function update_linear_velocity(
+	linear_velocity: LinearVelocity?,
+	value: unknown
+)
+	if linear_velocity then
+		linear_velocity.Enabled = value and true or false
 	end
-
-	movement.current = nil
-
-	return kind
 end
 
-const function ensure_linear_velocity(
-	character: ecs.CharacterModel,
-	movement: ecs.Movement
-): LinearVelocity
-	assert(movement.current)
+const function update_base(base: VectorBase, character: ecs.CharacterModel)
+	local value = base.vector
 
-	local linear_velocity = movement.current.linear_velocity :: LinearVelocity
-	const current = movement.current
+	local linear_velocity: LinearVelocity =
+		character:FindFirstChild "MovementLinearVelocity" :: LinearVelocity
+
+	update_linear_velocity(linear_velocity, value)
+	if not value then return end
 
 	if not linear_velocity then
-		linear_velocity = Instance.new "LinearVelocity"
-		linear_velocity.Parent = character
-		linear_velocity.MaxForce = 50000
-		linear_velocity.Attachment0 = character.HumanoidRootPart.RootAttachment
+		local instance = Instance.new "LinearVelocity"
+		instance.Parent = character
+		instance.Name = "MovementLinearVelocity"
+		instance.MaxForce = 50000
+		instance.Attachment0 = character.HumanoidRootPart.RootAttachment
 
-		if current.kind == "double_jump" then
-			linear_velocity.VelocityConstraintMode =
-				Enum.VelocityConstraintMode.Line
-			linear_velocity.LineDirection = Vector3.yAxis
-		end
-
-		movement.current.linear_velocity = linear_velocity
+		linear_velocity = instance
+		base.linear_velocity = linear_velocity
 	end
 
-	if current.kind == "double_jump" then
-		linear_velocity.LineVelocity = movement.current.vector.Y
-	else
-		linear_velocity.VectorVelocity = movement.current.vector
-	end
-
-	return linear_velocity
+	linear_velocity.VectorVelocity = value
 end
 
-const function get_dash_vector(character: ecs.CharacterModel): Vector3
-	const forward_vector = character.HumanoidRootPart.CFrame.LookVector
-	return Vector3.new(forward_vector.X, 0, forward_vector.Z) * DASH_VELOCITY
-end
-
-const function movement()
-	const movement, character = GET(), CHARACTER_GET()
-
-	if not character or not util.validate_character(character) then return end
-	if grounded(character) then movement.air_jump = 1 end
-	if not movement.current then return end
-
+const function lifetime_end(movement: Movement): boolean
 	const current = movement.current
-
-	if current.kind == "dash" then
-		const dash_vector = get_dash_vector(character.instance)
-		current.vector = dash_vector
-	end
-
-	if current.kind == "wallrun" then
-		const wall = client_util.wallrun.get_wall(character.instance)
-		if not wall then
-			MOVEMENT_END(movement)
-			return
-		end
-
-		const tangent =
-			client_util.wallrun.wall_tangent(character.instance, wall)
-		const result = client_util.wallrun.correct(
-			character.instance,
-			wall,
-			tangent,
-			character.instance.HumanoidRootPart.AssemblyLinearVelocity
-		)
-
-		current.vector = result
-	end
-
-	ensure_linear_velocity(character.instance, movement)
+	if not current then return false end
 
 	if
 		current.kind == "dash"
@@ -159,15 +185,102 @@ const function movement()
 		or current.kind == "side_dash"
 		or current.kind == "double_jump"
 	then
-		if (current.lifetime - os.clock()) <= 0 then MOVEMENT_END(movement) end
+		return (current.lifetime - os.clock()) <= 0
+	end
+
+	return false
+end
+
+const function movement_end(movement: Movement)
+	if not movement.current then return end
+
+	const current = movement.current
+	const kind = movement.current.kind
+
+	if
+		current.kind == "dash"
+		or current.kind == "dash_endjump"
+		or current.kind == "side_dash"
+		or current.kind == "wallrun"
+	then
+		current.animation_track:Stop()
+	end
+
+	movement.current = nil
+	movement.previous = kind
+end
+
+const function update_movement(
+	character: ecs.CharacterModel,
+	movement: Movement,
+	grounded: boolean
+)
+	if grounded then movement.air_jump = 1 end
+	const current = movement.current
+	if not current then return end
+
+	if current.kind == "dash" then
+		const result = client_util.dash.get_dash_vector(character)
+		current.vector = result
+	end
+
+	if current.kind == "wallrun" then
+		const wall = client_util.wallrun.get_wall(character)
+		if not wall then return movement_end(movement) end
+
+		const tangent = client_util.wallrun.wall_tangent(character, wall)
+		const result = client_util.wallrun.correct(
+			character,
+			wall,
+			tangent,
+			character.HumanoidRootPart.AssemblyLinearVelocity
+		)
+
+		current.vector = result
 	end
 end
 
-const function dash(lifetime: number)
-	const movement, character = GET(), CHARACTER_GET()
+const function movement(delta: number)
+	const base, character = GET(), CHARACTER_GET()
+	const movement = base.movement
+	if not character or not util.validate_character(character) then return end
+
+	const grounded = grounded(character.instance)
+	base.kind = if grounded then "ground" else "air"
+
+	update_movement(character.instance, movement, grounded)
+
+	local result: Vector3?
+	if base.kind == "air" then
+		result = handle_air(base, delta, character.instance)
+	else
+		result = handle_ground(base, character)
+	end
+
+	-- case where grounded & no movement active
+	if not result then
+		base.vector = nil
+		update_base(base, character.instance)
+	end
+
+	base.vector = result
+	update_base(base, character.instance)
+
+	if lifetime_end(movement) then movement_end(movement) end
+end
+
+--------------------------------------------------------------------------------
+-- implementations
+--------------------------------------------------------------------------------
+
+const DASH_VELOCITY = client_util.dash.DASH_VELOCITY
+
+const function dash()
+	const base, character = GET(), CHARACTER_GET()
+	const movement = base.movement
 
 	if not character or not util.validate_character(character) then return end
-	MOVEMENT_END(movement)
+	movement_end(movement)
 
 	const dash_vector = character.instance.HumanoidRootPart.CFrame.LookVector
 		* DASH_VELOCITY
@@ -181,22 +294,22 @@ const function dash(lifetime: number)
 		kind = "dash" :: "dash",
 		vector = dash_vector,
 		animation_track = track,
-		lifetime = os.clock() + lifetime,
-		linear_velocity = nil,
+		lifetime = os.clock() + 0.38,
 	} :: ecs.Dash
 
 	net.client.report_movement "dash"
-	camera.set_fov(80, lifetime)
+	camera.set_fov(80, 0.38)
 	track:Play()
 
-	SET(movement)
+	SET(base)
 end
 
 const function dash_endjump()
-	const movement, character = GET(), CHARACTER_GET()
+	const base, character = GET(), CHARACTER_GET()
+	const movement = base.movement
 
 	if not character or not util.validate_character(character) then return end
-	MOVEMENT_END(movement)
+	movement_end(movement)
 
 	const look_vector = character.instance.HumanoidRootPart.CFrame.LookVector
 
@@ -218,43 +331,20 @@ const function dash_endjump()
 		vector = result,
 		lifetime = os.clock() + 0.2,
 		animation_track = track,
-		linear_velocity = nil,
 	} :: ecs.Dash_EndJump
 
 	net.client.report_movement "dash_endjump"
 	camera.set_fov(75, 0.2)
 	track:Play()
 
-	SET(movement)
-end
-
-const function side_dash(direction: "left" | "right")
-	const movement, character = GET(), CHARACTER_GET()
-	if not character or not util.validate_character(character) then return end
-	MOVEMENT_END(movement)
-
-	const cframe = character.instance.HumanoidRootPart.CFrame
-	const direction_vector = if direction == "left"
-		then -cframe.RightVector
-		else cframe.RightVector
-
-	const result = direction_vector * 40
-
-	movement.current = {
-		kind = "side_dash",
-		vector = result,
-		lifetime = os.clock() + 0.2,
-		linear_velocity = nil,
-	} :: ecs.SideDash
-
-	SET(movement)
+	SET(base)
 end
 
 const JUMP_MAGNITUDE = 50
 
 const function double_jump()
-	local movement = GET()
-	local character = CHARACTER_GET()
+	const base, character = GET(), CHARACTER_GET()
+	const movement = base.movement
 
 	if
 		not character
@@ -264,7 +354,7 @@ const function double_jump()
 		return
 	end
 
-	MOVEMENT_END(movement)
+	movement_end(movement)
 
 	const result = Vector3.yAxis * JUMP_MAGNITUDE
 
@@ -284,17 +374,17 @@ const function double_jump()
 	movement.air_jump -= 1
 	track:Play()
 
-	SET(movement)
+	SET(base)
 end
 
 const function wallrun()
-	const movement, character = GET(), CHARACTER_GET()
-
+	const base, character = GET(), CHARACTER_GET()
+	const movement = base.movement
 	if not character or not util.validate_character(character) then return end
 
 	const wall, side = client_util.wallrun.get_wall(character.instance)
 	if not wall then return end
-	MOVEMENT_END(movement)
+	movement_end(movement)
 	client_util.state_jump(character.instance, false)
 
 	const tangent = client_util.wallrun.wall_tangent(character.instance, wall)
@@ -324,42 +414,39 @@ const function wallrun()
 	net.client.report_movement "wallrun"
 	track:Play()
 
-	SET(movement)
+	SET(base)
 end
 
 const function wallrun_end()
-	const movement = GET()
+	const movement = GET().movement
+	const current = movement.current
 
-	if not movement then return end
-	local current = movement.current
-
-	if current and current.kind == "wallrun" then MOVEMENT_END(movement) end
+	if current and current.kind == "wallrun" then movement_end(movement) end
 end
 
 const function current_movement(): ecs.MovementKind?
-	const movement = GET()
-	if movement.current then return movement.current.kind end
-
-	return nil
+	const movement = GET().movement
+	return movement.current and movement.current.kind or nil
 end
 
 const function previous_movement(): ecs.MovementKind?
-	const movement = GET()
-	if movement.previous then return movement.previous end
-
-	return nil
+	const movement = GET().movement
+	return movement.previous or nil
 end
 
 return {
-	phase = "update",
 	system = movement,
+	phase = "update",
 
 	dash = dash,
 	dash_endjump = dash_endjump,
-	side_dash = side_dash,
 	double_jump = double_jump,
 	wallrun = wallrun,
 	wallrun_end = wallrun_end,
+
+	current = current_movement,
+	previous = previous_movement,
+
 	near_wall = function()
 		const character = CHARACTER_GET()
 		if not character or not util.validate_character(character) then
@@ -375,9 +462,6 @@ return {
 			return nil
 		end
 
-		return grounded(character)
+		return grounded(character.instance)
 	end,
-
-	current = current_movement,
-	previous = previous_movement,
 }

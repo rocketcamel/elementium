@@ -55,6 +55,7 @@ local function validate_character(character: ecs.Character?)
 		character
 		and character.instance.Parent
 		and character.instance:FindFirstChild "Humanoid"
+		and character.instance:FindFirstChild "HumanoidRootPart"
 	then
 		return true
 	else
